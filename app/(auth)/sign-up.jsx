@@ -82,24 +82,36 @@ const SignUp = () => {
   //!=================== Send data to the API
   const sendData = async () => {
     try {
-      const url = "http://127.0.0.1:8000/events/";
+      const url = "http://10.0.2.2:8000/api/events/"; //TODO: <- CHANGE TO THE ACTUAL
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+
+        //TODO: Refactor when db is ready
         body: JSON.stringify({
           name: form.username,
           description: form.email,
-          data: "2025-03-03", // Replace with actual data if needed
+          date: "2025-03-03",
         }),
+        //TODO: Refactor when db is ready
       });
 
-      const result = await response.json();
+      const rawResponse = await response.text();
+      console.log("Raw Response:", rawResponse);
 
       if (response.ok) {
-        console.log("DATA IS ADDED:", result);
+        const result = JSON.parse(rawResponse);
         Alert.alert("Успех", "Вы успешно зарегистрировались!");
+
+        //Clear the input area
+        setForm({
+          username: "",
+          email: "",
+          password: "",
+          passwordProof: "",
+        });
       } else {
-        console.log("ERROR:", result);
+        console.log("ERROR:", rawResponse);
         Alert.alert(
           "Ошибка",
           "Не удалось зарегистрироваться. Попробуйте снова."
@@ -125,7 +137,9 @@ const SignUp = () => {
 
   return (
     <LinearGradient
-      colors={["#FF9A9E", "#FAD0C4"]} // Pink gradient
+      colors={["#1E3A8A", "#C084FC"]}
+      start={{ x: 1, y: 1 }} // Top-left
+      end={{ x: 0, y: 0 }} // Bottom-right
       style={styles.gradient}
     >
       <SafeAreaView style={styles.container}>
@@ -247,7 +261,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#FF9A9E",
+    color: "#1E3A8A",
   },
   registerContainer: {
     marginTop: 20,

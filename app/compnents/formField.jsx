@@ -30,7 +30,7 @@ const FormField = ({
       <View
         style={[
           styles.inputContainer,
-          isFocused && styles.inputContainerFocused, // Apply pink border when focused
+          isFocused && styles.inputContainerFocused,
         ]}
       >
         {/* Icon (optional) */}
@@ -46,13 +46,13 @@ const FormField = ({
         {/* Input Field */}
         <TextInput
           style={styles.input}
-          value={value} // Pass the value from props
+          value={value}
           placeholder={placeholder}
           placeholderTextColor="#999"
           secureTextEntry={secureTextEntry && !showPassword} // Toggle password visibility
-          onChangeText={handleChangeText} // Use the handleChangeText prop
-          onFocus={() => setIsFocused(true)} // Set focus state to true
-          onBlur={() => setIsFocused(false)} // Set focus state to false
+          onChangeText={handleChangeText}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           {...props}
         />
 
@@ -78,14 +78,14 @@ export default FormField;
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20, // Spacing between form fields
-    width: "80%", // Set width to 80% of the screen
-    alignSelf: "center", // Center the component horizontally
+    marginBottom: 20,
+    width: "80%",
+    alignSelf: "center",
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: "white",
     marginBottom: 8,
   },
   inputContainer: {
@@ -97,20 +97,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 10,
     backgroundColor: "#fff",
-    width: "100%", // Take up full width of the container
+    width: "100%",
   },
   inputContainerFocused: {
-    borderColor: "pink", // Pink border when focused
+    borderColor: "white",
   },
   icon: {
-    marginRight: 10, // Spacing between icon and input
+    marginRight: 10,
   },
   input: {
-    flex: 1, // Take up remaining space
+    flex: 1,
     fontSize: 16,
     color: "#333",
   },
   toggleButton: {
-    marginLeft: 10, // Spacing between input and toggle button
+    marginLeft: 10,
   },
 });
