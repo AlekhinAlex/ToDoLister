@@ -1,25 +1,34 @@
 import { StyleSheet } from "react-native";
 import React from "react";
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons"; // For icons
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
 const TabsLayout = () => {
   return (
     <>
       <Tabs
         screenOptions={{
-          tabBarStyle: tabStyle.menu, // Apply the style to the tab bar
-          tabBarActiveTintColor: "white", // Color of the active tab label
-          tabBarInactiveTintColor: "black", // Color of the inactive tab label
+          tabBarStyle: tabStyle.menu,
+          tabBarActiveTintColor: "white",
+          tabBarInactiveTintColor: "#C084FC",
           tabBarLabelStyle: {
             fontWeight: "700",
             fontSize: 16,
           },
           tabBarItemStyle: {
-            borderRadius: 25, // Rounded corners for each tab
-            marginHorizontal: 10, // Spacing between tabs
-            marginVertical: 5, // Vertical spacing
+            borderRadius: 25,
+            marginHorizontal: 5,
+            marginVertical: 5,
           },
+          tabBarBackground: () => (
+            <LinearGradient
+              colors={["#1E3A8A", "#C084FC"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={tabStyle.gradient}
+            />
+          ),
         }}
       >
         <Tabs.Screen
@@ -30,8 +39,8 @@ const TabsLayout = () => {
             tabBarIcon: ({ focused }) => (
               <Ionicons
                 name={focused ? "list" : "list-outline"}
-                size={24}
-                color={focused ? "white" : "black"}
+                size={28}
+                color={focused ? "white" : "#C084FC"}
               />
             ),
           }}
@@ -44,8 +53,8 @@ const TabsLayout = () => {
             tabBarIcon: ({ focused }) => (
               <Ionicons
                 name={focused ? "person" : "person-outline"}
-                size={24}
-                color={focused ? "white" : "black"}
+                size={28}
+                color={focused ? "white" : "#C084FC"}
               />
             ),
           }}
@@ -59,13 +68,24 @@ export default TabsLayout;
 
 const tabStyle = StyleSheet.create({
   menu: {
-    backgroundColor: "pink", // Background color of the tab bar
-    height: 60, // Adjust the height of the tab bar
-    borderTopWidth: 0, // Remove the top border
-    elevation: 10, // Add shadow for Android
-    shadowColor: "#000", // Shadow for iOS
+    backgroundColor: "transparent",
+    height: 70,
+    borderTopWidth: 0,
+    elevation: 10,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+    marginHorizontal: 13,
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    right: 10,
+    borderRadius: 25,
+    overflow: "hidden",
+  },
+  gradient: {
+    flex: 1,
+    borderRadius: 30,
   },
 });
