@@ -31,7 +31,9 @@ const SignIn = () => {
     let isValid = true;
     const newErrors = {};
 
-    // Email validation
+    {
+      /* Email validation*/
+    }
     if (!form.email) {
       newErrors.email = "Email обязателен";
       isValid = false;
@@ -96,8 +98,8 @@ const SignIn = () => {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <LinearGradient
         colors={["#1E3A8A", "#C084FC"]}
-        start={{ x: 0, y: 0 }} // Top-left
-        end={{ x: 1, y: 0 }} // Bottom-right
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
         style={styles.gradient}
       >
         <SafeAreaView style={styles.container}>
@@ -162,7 +164,7 @@ const SignIn = () => {
                   </TouchableOpacity>
                 </Link>
               </View>
-              //!============LOGIN FOR TESTING==============================
+              {/*============LOGIN FOR TESTING==============================*/}
               <View style={styles.registerContainer}>
                 <Link href="/(tabs)/tasks" asChild>
                   <TouchableOpacity style={styles.testButton}>
@@ -170,7 +172,7 @@ const SignIn = () => {
                   </TouchableOpacity>
                 </Link>
               </View>
-              //!============LOGIN FOR TESTING==============================
+              {/*============LOGIN FOR TESTING==============================*/}
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -223,7 +225,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#1E3A8A", // Match the background gradient
+    color: "#1E3A8A",
   },
   registerContainer: {
     marginTop: 20,

@@ -138,14 +138,14 @@ const SignUp = () => {
   return (
     <LinearGradient
       colors={["#1E3A8A", "#C084FC"]}
-      start={{ x: 1, y: 1 }} // Top-left
-      end={{ x: 0, y: 0 }} // Bottom-right
+      start={{ x: 1, y: 1 }}
+      end={{ x: 0, y: 0 }}
       style={styles.gradient}
     >
       <SafeAreaView style={styles.container}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled" // Handle keyboard interactions
+          keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
           <Text style={styles.header}>Регистрация</Text>
@@ -166,7 +166,7 @@ const SignUp = () => {
             value={form.email}
             handleChangeText={(e) => setForm({ ...form, email: e })}
             placeholder="Введите ваш email"
-            iconName="mail-outline" // Optional icon
+            iconName="mail-outline"
             keyboardType="email-address"
           />
 
@@ -177,7 +177,7 @@ const SignUp = () => {
             value={form.password}
             handleChangeText={(e) => setForm({ ...form, password: e })}
             placeholder="Введите ваш пароль"
-            iconName="lock-closed-outline" // Optional icon
+            iconName="lock-closed-outline"
             secureTextEntry // Enable password toggle
           />
 
@@ -188,7 +188,7 @@ const SignUp = () => {
             value={form.passwordProof}
             handleChangeText={(e) => setForm({ ...form, passwordProof: e })}
             placeholder="Повторите ваш пароль"
-            iconName="lock-closed-outline" // Optional icon
+            iconName="lock-closed-outline"
             secureTextEntry // Enable password toggle
           />
 
