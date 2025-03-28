@@ -14,14 +14,14 @@ const Profile = () => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Profile Header */}
+      {/*THIS WILL BE REPLACED WITH AVATAR THAT CAN BE LATER MODIFIED WITH ITEMS BOUGHT IN SHOP*/}
       <View style={styles.profileHeader}>
         <Image
           source={{
-            uri: "https://fenolog.rgo.ru/sites/default/files/styles/full_width/public/user/7286/elephant-114543960720.jpg?itok=TFzOicDs",
-          }} // Temporary picture, has to be replaced with real picture
+            uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/GoslingBFI081223_%2822_of_30%29_%2853388157347%29_%28cropped%29.jpg/240px-GoslingBFI081223_%2822_of_30%29_%2853388157347%29_%28cropped%29.jpg",
+          }} // Temporary picture, has to be replaced with avatar
           style={styles.profileImage}
         />
-        <Text style={styles.profileName}>Иван Иванов</Text>
       </View>
       {/* End of Profile Header */}
 

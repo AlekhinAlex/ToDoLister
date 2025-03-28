@@ -22,7 +22,7 @@ export default function App() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <StatusBar style="auto" />
 
-          <Text style={styles.title}>Добро пожаловать в MrGLbI4</Text>
+          <Text style={styles.title}>Добро пожаловать в Todolister</Text>
 
           <Text style={styles.subtitle}>
             Помогаю сделать повседневные задачи более интересными

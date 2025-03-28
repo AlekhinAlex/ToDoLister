@@ -24,8 +24,8 @@ const TabsLayout = () => {
           tabBarBackground: () => (
             <LinearGradient
               colors={["#1E3A8A", "#C084FC"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              start={{ x: 0, y: 1 }}
+              end={{ x: 0, y: 0 }}
               style={tabStyle.gradient}
             />
           ),
@@ -53,6 +53,20 @@ const TabsLayout = () => {
             tabBarIcon: ({ focused }) => (
               <Ionicons
                 name={focused ? "person" : "person-outline"}
+                size={28}
+                color={focused ? "white" : "#C084FC"}
+              />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="shop"
+          options={{
+            title: "Mагазин",
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <Ionicons
+                name={focused ? "cart" : "cart-outline"}
                 size={28}
                 color={focused ? "white" : "#C084FC"}
               />
