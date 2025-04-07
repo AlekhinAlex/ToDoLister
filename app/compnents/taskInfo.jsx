@@ -1,5 +1,11 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import React from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+} from "react-native";
+import React, { useEffect, useState } from "react";
 
 const TaskInfo = ({
   title,
@@ -9,45 +15,79 @@ const TaskInfo = ({
   onComplete,
   onCancel,
 }) => {
+  const [isCompact, setIsCompact] = useState(
+    Dimensions.get("window").width < 764
+  );
+
+  useEffect(() => {
+    const handleResize = ({ window }) => {
+      setIsCompact(window.width < 764);
+    };
+
+    const subscription = Dimensions.addEventListener("change", handleResize);
+    return () => subscription?.remove();
+  }, []);
+
   return (
-    <View style={[styles.taskCard, completed && styles.completedCard]}>
-      <View style={styles.textContainer}>
-        <Text style={[styles.taskTitle, completed && styles.completedText]}>
-          {title}
-        </Text>
-        {description && (
-          <Text
-            style={[styles.taskDescription, completed && styles.completedText]}
-          >
-            {description}
+    <View
+      style={[
+        styles.taskCard,
+        completed && styles.completedCard,
+        !isCompact && styles.webContainer,
+      ]}
+    >
+      <View style={[!isCompact && styles.webContent]}>
+        <View style={styles.textContainer}>
+          <Text style={[styles.taskTitle, completed && styles.completedText]}>
+            {title}
           </Text>
-        )}
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.button, styles.editButton]}
-          onPress={onEdit}
-        >
-          <Text style={styles.editButtonText}>Редактировать</Text>
-        </TouchableOpacity>
-
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
-            onPress={onCancel}
-          >
-            <Text style={styles.buttonText}>Отказаться</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.doneButton]}
-            onPress={onComplete}
-          >
-            <Text style={styles.buttonText}>
-              {completed ? "Возобновить" : "Выполнено"}
+          {description && (
+            <Text
+              style={[
+                styles.taskDescription,
+                completed && styles.completedText,
+              ]}
+            >
+              {description}
             </Text>
+          )}
+        </View>
+
+        <View
+          style={[
+            styles.buttonContainer,
+            !isCompact && styles.webButtonContainer,
+          ]}
+        >
+          <TouchableOpacity
+            style={[styles.button, styles.editButton]}
+            onPress={onEdit}
+          >
+            <Text style={styles.editButtonText}>Редактировать</Text>
           </TouchableOpacity>
+
+          <View
+            style={[
+              styles.actionButtons,
+              !isCompact && styles.webActionButtons,
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton]}
+              onPress={onCancel}
+            >
+              <Text style={styles.buttonText}>Отказаться</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, styles.doneButton]}
+              onPress={onComplete}
+            >
+              <Text style={styles.buttonText}>
+                {completed ? "Возобновить" : "Выполнено"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </View>
@@ -55,16 +95,20 @@ const TaskInfo = ({
 };
 
 const styles = StyleSheet.create({
+  // Базовые стили
   taskCard: {
-    backgroundColor: "#2A3A4D",
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 15,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 20,
+    padding: 20,
     elevation: 5,
+    margin: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    backdropFilter: "blur(10px)", // если web
+    borderColor: "rgba(255,255,255,0.2)",
+    borderWidth: 1,
   },
   completedCard: {
     opacity: 0.7,
@@ -102,7 +146,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: "center",
     justifyContent: "center",
-    flex: 1,
     minHeight: 44,
   },
   editButton: {
@@ -125,6 +168,28 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     color: "#FFFFFF",
+  },
+
+  // Стили для более широких экранов (не compact)
+  webContainer: {
+    display: "flex",
+    width: 250,
+    minHeight: 150,
+    marginRight: 15,
+  },
+  webContent: {
+    flex: 1,
+    flexDirection: "column",
+    justifyContent: "space-between",
+  },
+  webButtonContainer: {
+    flexDirection: "column",
+    justifyContent: "flex-end",
+    flex: 1,
+  },
+  webActionButtons: {
+    flexDirection: "column",
+    gap: 8,
   },
 });
 

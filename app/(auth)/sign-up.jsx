@@ -151,69 +151,71 @@ const SignUp = () => {
           <Text style={styles.header}>Регистрация</Text>
 
           {/* Username Field */}
-          <FormField
-            name="Имя пользователя"
-            title="username"
-            value={form.username}
-            handleChangeText={(e) => setForm({ ...form, username: e })}
-            placeholder="Введите имя пользователя"
-          />
+          <View style={styles.registerBlock}>
+            <FormField
+              name="Имя пользователя"
+              title="username"
+              value={form.username}
+              handleChangeText={(e) => setForm({ ...form, username: e })}
+              placeholder="Введите имя пользователя"
+            />
 
-          {/* Email Field */}
-          <FormField
-            name="Email"
-            title="Email"
-            value={form.email}
-            handleChangeText={(e) => setForm({ ...form, email: e })}
-            placeholder="Введите ваш email"
-            iconName="mail-outline"
-            keyboardType="email-address"
-          />
+            {/* Email Field */}
+            <FormField
+              name="Email"
+              title="Email"
+              value={form.email}
+              handleChangeText={(e) => setForm({ ...form, email: e })}
+              placeholder="Введите ваш email"
+              iconName="mail-outline"
+              keyboardType="email-address"
+            />
 
-          {/* Password Field */}
-          <FormField
-            name="Пароль"
-            title="Password"
-            value={form.password}
-            handleChangeText={(e) => setForm({ ...form, password: e })}
-            placeholder="Введите ваш пароль"
-            iconName="lock-closed-outline"
-            secureTextEntry // Enable password toggle
-          />
+            {/* Password Field */}
+            <FormField
+              name="Пароль"
+              title="Password"
+              value={form.password}
+              handleChangeText={(e) => setForm({ ...form, password: e })}
+              placeholder="Введите ваш пароль"
+              iconName="lock-closed-outline"
+              secureTextEntry // Enable password toggle
+            />
 
-          {/* Confirm Password Field */}
-          <FormField
-            name="Повторите пароль"
-            title="Confirm Password"
-            value={form.passwordProof}
-            handleChangeText={(e) => setForm({ ...form, passwordProof: e })}
-            placeholder="Повторите ваш пароль"
-            iconName="lock-closed-outline"
-            secureTextEntry // Enable password toggle
-          />
+            {/* Confirm Password Field */}
+            <FormField
+              name="Повторите пароль"
+              title="Confirm Password"
+              value={form.passwordProof}
+              handleChangeText={(e) => setForm({ ...form, passwordProof: e })}
+              placeholder="Повторите ваш пароль"
+              iconName="lock-closed-outline"
+              secureTextEntry // Enable password toggle
+            />
 
-          {/* Error Message */}
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {/* Error Message */}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {/* Sign Up Button */}
-          <TouchableOpacity
-            style={[styles.button, !isFormValid && styles.disabledButton]}
-            onPress={handleSignUp}
-            disabled={!isFormValid}
-          >
-            <Text style={styles.buttonText}>Зарегистрироваться</Text>
-          </TouchableOpacity>
+            {/* Sign Up Button */}
+            <TouchableOpacity
+              style={[styles.button, !isFormValid && styles.disabledButton]}
+              onPress={handleSignUp}
+              disabled={!isFormValid}
+            >
+              <Text style={styles.buttonText}>Зарегистрироваться</Text>
+            </TouchableOpacity>
 
-          {/* Login Section */}
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>
-              Уже зарегистрированы? Так чего вы ждете!
-            </Text>
-            <Link href="/sign-in" asChild>
-              <TouchableOpacity style={styles.registerButton}>
-                <Text style={styles.registerButtonText}>Войти</Text>
-              </TouchableOpacity>
-            </Link>
+            {/* Login Section */}
+            <View style={styles.registerContainer}>
+              <Text style={styles.registerText}>
+                Уже зарегистрированы? Так чего вы ждете!
+              </Text>
+              <Link href="/sign-in" asChild>
+                <TouchableOpacity style={styles.registerButton}>
+                  <Text style={styles.registerButtonText}>Войти</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -228,16 +230,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
+    alignSelf: "center",
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+  },
+  registerBlock: {
+    width: "100%",
+    maxWidth: 400,
+    padding: 30,
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   header: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "bold",
     color: "#FFFFFF",
     marginBottom: 30,

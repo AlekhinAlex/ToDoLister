@@ -15,7 +15,7 @@ const FormField = ({
   placeholder,
   iconName,
   secureTextEntry = false,
-  handleChangeText, // Accept handleChangeText prop
+  handleChangeText,
   ...props
 }) => {
   const [showPassword, setShowPassword] = useState(false);

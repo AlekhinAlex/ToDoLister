@@ -94,22 +94,23 @@ const SignIn = () => {
     }
   };
 
+  //TODO: fix input
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <LinearGradient
-        colors={["#1E3A8A", "#C084FC"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.gradient}
-      >
-        <SafeAreaView style={styles.container}>
+    <LinearGradient
+      colors={["#1E3A8A", "#C084FC"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.gradient}
+    >
+      <SafeAreaView style={styles.container}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
             <Text style={styles.header}>Вход в Аккаунт</Text>
 
-            <View style={styles.formContainer}>
+            <View style={styles.formContainer && styles.registerBlock}>
               <FormField
                 name="Email"
                 title="Email"
@@ -125,6 +126,7 @@ const SignIn = () => {
               {errors.email ? (
                 <Text style={styles.errorText}>{errors.email}</Text>
               ) : null}
+
               <FormField
                 name="Пароль"
                 title="Password"
@@ -141,6 +143,7 @@ const SignIn = () => {
               {errors.password ? (
                 <Text style={styles.errorText}>{errors.password}</Text>
               ) : null}
+
               <TouchableOpacity
                 style={[styles.button, isLoading && styles.buttonDisabled]}
                 onPress={logIn}
@@ -154,6 +157,8 @@ const SignIn = () => {
                   <Text style={styles.buttonText}>Войти</Text>
                 )}
               </TouchableOpacity>
+
+              {/* Registration block with background */}
               <View style={styles.registerContainer}>
                 <Text style={styles.registerText}>Неужели нет аккаунта?</Text>
                 <Link href="/sign-up" asChild>
@@ -164,7 +169,8 @@ const SignIn = () => {
                   </TouchableOpacity>
                 </Link>
               </View>
-              {/*============LOGIN FOR TESTING==============================*/}
+
+              {/* TEST LOGIN */}
               <View style={styles.registerContainer}>
                 <Link href="/(tabs)/tasks" asChild>
                   <TouchableOpacity style={styles.testButton}>
@@ -172,12 +178,11 @@ const SignIn = () => {
                   </TouchableOpacity>
                 </Link>
               </View>
-              {/*============LOGIN FOR TESTING==============================*/}
             </View>
           </ScrollView>
-        </SafeAreaView>
-      </LinearGradient>
-    </TouchableWithoutFeedback>
+        </TouchableWithoutFeedback>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
@@ -188,19 +193,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  registerBlock: {
+    width: "100%",
+    maxWidth: 400,
+    padding: 30,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
   },
-  formContainer: {
-    width: "100%",
-    maxWidth: 400,
-  },
+  formContainer: {},
   header: {
     fontFamily: "Helvetica",
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "bold",
     color: "#FFFFFF",
     marginBottom: 30,

@@ -5,98 +5,137 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
+  TextInput,
+  Modal,
+  Alert,
 } from "react-native";
-import React from "react";
+import React, { useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 
 const Profile = () => {
+  // Initial user data with only email
+  const [userData, setUserData] = useState({
+    email: "ivan.ivanov@example.com",
+    avatar:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/GoslingBFI081223_%2822_of_30%29_%2853388157347%29_%28cropped%29.jpg/240px-GoslingBFI081223_%2822_of_30%29_%2853388157347%29_%28cropped%29.jpg",
+  });
+
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editableEmail, setEditableEmail] = useState(userData.email);
+
+  const handleEditPress = () => {
+    setEditableEmail(userData.email);
+    setIsEditModalVisible(true);
+  };
+
+  const handleSaveChanges = () => {
+    if (!editableEmail.includes("@")) {
+      Alert.alert("Ошибка", "Пожалуйста, введите корректный email");
+      return;
+    }
+
+    setUserData({ ...userData, email: editableEmail });
+    setIsEditModalVisible(false);
+    // May be later
+    //Alert.alert("Успех", "Email успешно изменен");
+  };
+
+  const handleLogout = () => {
+    Alert.alert("Выход", "Вы уверены, что хотите выйти?", [
+      {
+        text: "Отмена",
+        style: "cancel",
+      },
+      { text: "Выйти", onPress: () => console.log("User logged out") },
+    ]);
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Profile Header */}
-      {/*THIS WILL BE REPLACED WITH AVATAR THAT CAN BE LATER MODIFIED WITH ITEMS BOUGHT IN SHOP*/}
-      <View style={styles.profileHeader}>
-        <Image
-          source={{
-            uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/GoslingBFI081223_%2822_of_30%29_%2853388157347%29_%28cropped%29.jpg/240px-GoslingBFI081223_%2822_of_30%29_%2853388157347%29_%28cropped%29.jpg",
-          }} // Temporary picture, has to be replaced with avatar
-          style={styles.profileImage}
-        />
-      </View>
-      {/* End of Profile Header */}
+    <LinearGradient colors={["#4169d1", "#9ba7be"]} style={styles.gradient}>
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Profile Header */}
+        <View style={styles.profileHeader}>
+          <Image
+            source={{ uri: userData.avatar }}
+            style={styles.profileImage}
+          />
+        </View>
 
-      {/* User Information Section */}
-      <View style={styles.infoContainer}>
-        {/* Email card */}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: "rgba(255, 255, 255, 0.1)",
-            borderTopLeftRadius: 30,
-            borderTopRightRadius: 30,
-            padding: 15,
-            marginBottom: 5,
-          }}
-        >
-          <Ionicons name="mail-outline" size={24} color="#C084FC" />
-          <Text style={styles.infoText}>ivan.ivanov@example.com</Text>
+        {/* Email Information */}
+        <View style={styles.infoContainer}>
+          <View style={styles.infoCard}>
+            <Ionicons name="mail-outline" size={24} color="#C084FC" />
+            <Text style={styles.infoText}>{userData.email}</Text>
+          </View>
         </View>
-        {/* Number card (may be not needed)*/}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: "rgba(255, 255, 255, 0.1)",
-            padding: 15,
-            marginBottom: 5,
-          }}
-        >
-          <Ionicons name="call-outline" size={24} color="#C084FC" />
-          <Text style={styles.infoText}>+7 123 456-7890</Text>
-        </View>
-        {/* Location card (may be not needed)*/}
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            backgroundColor: "rgba(255, 255, 255, 0.1)",
-            borderBottomLeftRadius: 30,
-            borderBottomRightRadius: 30,
-            padding: 15,
-            marginBottom: 10,
-          }}
-        >
-          <Ionicons name="location-outline" size={24} color="#C084FC" />
-          <Text style={styles.infoText}>Москва, Россия</Text>
-        </View>
-      </View>
-      {/* End of User Information Section */}
 
-      {/* Action Buttons */}
-      <TouchableOpacity style={styles.actionButton}>
-        <Text style={styles.actionButtonText}>Редактировать профиль</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={[styles.actionButton, styles.logoutButton]}>
-        <Text style={styles.actionButtonText}>Выйти</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        {/* Action Buttons */}
+        <TouchableOpacity style={styles.actionButton} onPress={handleEditPress}>
+          <Text style={styles.actionButtonText}>Изменить email</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.logoutButton]}
+          onPress={handleLogout}
+        >
+          <Text style={styles.actionButtonText}>Выйти</Text>
+        </TouchableOpacity>
+
+        {/* Edit Email Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={isEditModalVisible}
+          onRequestClose={() => setIsEditModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Изменить email</Text>
+
+              <Text style={styles.inputLabel}>Новый email</Text>
+              <TextInput
+                style={styles.input}
+                value={editableEmail}
+                onChangeText={setEditableEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="Введите новый email"
+                placeholderTextColor="#999"
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setIsEditModalVisible(false)}
+                >
+                  <Text style={styles.modalButtonText}>Отмена</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.saveButton]}
+                  onPress={handleSaveChanges}
+                >
+                  <Text style={styles.modalButtonText}>Сохранить</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    </LinearGradient>
   );
 };
 
-export default Profile;
-
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   container: {
     flexGrow: 1,
     alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 55,
     paddingBottom: 20,
-    backgroundColor: "#0A1F3A",
+  },
+  gradient: {
+    flex: 1,
   },
   profileHeader: {
     alignItems: "center",
@@ -110,18 +149,6 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
     marginBottom: 15,
   },
-  profileName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    marginBottom: 5,
-  },
-  profileBio: {
-    fontSize: 16,
-    color: "#FFFFFF",
-    opacity: 0.8,
-    textAlign: "center",
-  },
   infoContainer: {
     width: "100%",
     marginBottom: 30,
@@ -130,8 +157,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderRadius: 30,
     padding: 15,
     marginBottom: 10,
   },
@@ -157,4 +183,62 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FFFFFF",
   },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    width: "90%",
+    backgroundColor: "#1E2F47",
+    borderRadius: 20,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  inputLabel: {
+    color: "#FFFFFF",
+    marginBottom: 5,
+    marginLeft: 5,
+  },
+  input: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    color: "#FFFFFF",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#C084FC",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: "#FF9A9E",
+  },
+  saveButton: {
+    backgroundColor: "#C084FC",
+  },
+  modalButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
 });
+
+export default Profile;

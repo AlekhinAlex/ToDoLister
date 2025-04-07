@@ -1,4 +1,3 @@
-// components/EditTaskModal.js
 import {
   View,
   Text,
@@ -6,12 +5,18 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
+  Dimensions,
 } from "react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
-const EditTaskModal = ({ visible, task, onSave, onCancel }) => {
-  const [title, setTitle] = React.useState(task?.title || "");
-  const [description, setDescription] = React.useState(task?.description || "");
+const EditTaskModal = ({ visible, task, onSave, onCancel, isCompact }) => {
+  const [title, setTitle] = useState(task?.title || "");
+  const [description, setDescription] = useState(task?.description || "");
+
+  useEffect(() => {
+    setTitle(task?.title || "");
+    setDescription(task?.description || "");
+  }, [task]);
 
   return (
     <Modal
@@ -21,7 +26,7 @@ const EditTaskModal = ({ visible, task, onSave, onCancel }) => {
       onRequestClose={onCancel}
     >
       <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { width: isCompact ? "90%" : 500 }]}>
           <Text style={styles.modalTitle}>Редактировать задачу</Text>
 
           <Text style={styles.label}>Название:</Text>
@@ -44,11 +49,14 @@ const EditTaskModal = ({ visible, task, onSave, onCancel }) => {
           />
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton]}
+              onPress={onCancel}
+            >
               <Text style={styles.buttonText}>Отмена</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.saveButton}
+              style={[styles.button, styles.saveButton]}
               onPress={() => onSave({ title, description })}
             >
               <Text style={styles.buttonText}>Сохранить</Text>
@@ -68,26 +76,28 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
-    width: "90%",
-    backgroundColor: "#1E2A3A",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 20,
     padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
     elevation: 5,
+    margin: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    borderColor: "rgba(255,255,255,0.2)",
+    borderWidth: 1,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: "bold",
-    color: "#FFD700",
+    fontWeight: "600",
+    color: "#00FFFF",
     marginBottom: 20,
     textAlign: "center",
   },
   label: {
     fontSize: 16,
-    color: "#00FFFF",
+    color: "#E0F2FE",
     marginBottom: 8,
   },
   input: {
@@ -107,25 +117,31 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 10,
   },
+  button: {
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+  },
   cancelButton: {
-    backgroundColor: "#F44336",
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: "#F87171",
+    borderWidth: 1,
+    borderColor: "#F75C03",
     flex: 1,
     marginRight: 10,
-    alignItems: "center",
   },
   saveButton: {
-    backgroundColor: "#4CAF50",
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: "#34D399",
+    borderWidth: 2,
+    borderColor: "#56CFE1",
     flex: 1,
     marginLeft: 10,
-    alignItems: "center",
   },
   buttonText: {
     color: "#FFFFFF",
     fontWeight: "600",
+    fontSize: 14,
   },
 });
 
