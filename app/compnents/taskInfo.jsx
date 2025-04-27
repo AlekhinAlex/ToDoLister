@@ -6,6 +6,7 @@ import {
   Dimensions,
 } from "react-native";
 import React, { useEffect, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 
 const TaskInfo = ({
   title,
@@ -14,6 +15,8 @@ const TaskInfo = ({
   onEdit,
   onComplete,
   onCancel,
+  gold = 0,
+  xp = 0,
 }) => {
   const [isCompact, setIsCompact] = useState(
     Dimensions.get("window").width < 764
@@ -63,7 +66,10 @@ const TaskInfo = ({
             style={[styles.button, styles.editButton]}
             onPress={onEdit}
           >
-            <Text style={styles.editButtonText}>Редактировать</Text>
+            <View style={styles.buttonContent}>
+              <Ionicons name="create-outline" size={18} color="white" />
+              <Text style={styles.editButtonText}>Редактировать</Text>
+            </View>
           </TouchableOpacity>
 
           <View
@@ -76,16 +82,45 @@ const TaskInfo = ({
               style={[styles.button, styles.cancelButton]}
               onPress={onCancel}
             >
-              <Text style={styles.buttonText}>Отказаться</Text>
+              <View style={styles.buttonContent}>
+                <Ionicons
+                  name={completed ? "arrow-undo-outline" : "close-outline"}
+                  size={18}
+                  color="white"
+                />
+                <Text style={styles.buttonText}>
+                  {completed ? "Убрать" : "Отказаться"}
+                </Text>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.button, styles.doneButton]}
               onPress={onComplete}
             >
-              <Text style={styles.buttonText}>
-                {completed ? "Возобновить" : "Выполнено"}
-              </Text>
+              {completed ? (
+                <View style={styles.buttonContent}>
+                  <Ionicons name="refresh-outline" size={18} color="white" />
+                  <Text style={styles.buttonText}>Возобновить</Text>
+                </View>
+              ) : (
+                <View style={{ alignItems: "center" }}>
+                  <View style={styles.buttonContent}>
+                    <Ionicons name="checkmark-outline" size={18} color="white" />
+                    <Text style={styles.buttonText}>Выполнено</Text>
+                  </View>
+                  <View style={styles.rewardContainer}>
+                    <View style={styles.rewardItem}>
+                      <Ionicons name="cash-outline" size={18} color="#FFD700" />
+                      <Text style={styles.rewardText}>+{gold}</Text>
+                    </View>
+                    <View style={styles.rewardItem}>
+                      <Ionicons name="school-outline" size={18} color="#FFD700" />
+                      <Text style={styles.rewardText}>+{xp}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -95,7 +130,6 @@ const TaskInfo = ({
 };
 
 const styles = StyleSheet.create({
-  // Базовые стили
   taskCard: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 20,
@@ -106,7 +140,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
-    backdropFilter: "blur(10px)", // если web
+    backdropFilter: "blur(10px)", // Только для Web
     borderColor: "rgba(255,255,255,0.2)",
     borderWidth: 1,
   },
@@ -138,15 +172,22 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: "row",
+    justifyContent: "space-around",
     gap: 10,
     marginTop: 8,
   },
   button: {
     borderRadius: 12,
     paddingVertical: 10,
+    paddingHorizontal: 40,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 44,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   editButton: {
     backgroundColor: "#C084FC",
@@ -164,13 +205,17 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#FFFFFF",
     fontWeight: "600",
-    fontSize: 14,
+    fontSize: 15,
   },
   editButtonText: {
     color: "#FFFFFF",
   },
+  rewardText: {
+    fontSize: 16,
+    color: "#fff",
+    marginTop: 4,
+  },
 
-  // Стили для более широких экранов (не compact)
   webContainer: {
     display: "flex",
     width: 250,
@@ -190,6 +235,18 @@ const styles = StyleSheet.create({
   webActionButtons: {
     flexDirection: "column",
     gap: 8,
+  },
+  rewardContainer: {
+    flexDirection: "row",
+    marginTop: 6,
+    gap: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  rewardItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
 });
 

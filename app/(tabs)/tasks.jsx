@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,69 +7,29 @@ import {
   TouchableOpacity,
   Dimensions,
 } from "react-native";
-import TaskInfo from "../compnents/taskInfo";
-import React, { useState, useEffect } from "react";
-import EditTaskModal from "../compnents/editTaskModal";
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import TaskInfo from "../compnents/taskInfo";  // Предположим, что это компонент для отображения задач
+import EditTaskModal from "../compnents/editTaskModal";  // Предположим, что это компонент для редактирования задач
+import { isTokenExpired, refreshAccessToken } from "./lib/authTokenManager";  // Функции для проверки и обновления токенов
+import { getToken, setToken } from "./lib/storage";  // Функции для работы с токенами
+import { createTask, updateTask } from "./lib/api";  // Функции для отправки задач на сервер
+import { Alert } from "react-native"; // Добавь импорт
+import ConfirmDeleteModal from "../compnents/confirmDeleteModal";  // путь проверь
+
+
+const API_BASE = "http://127.0.0.1:8000";  // Базовый URL API
 
 const Tasks = () => {
   const [editingTask, setEditingTask] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      title: "Запланировать встречу",
-      description: "С клиентом в 15:00",
-      completed: false,
-    },
-    {
-      id: 2,
-      title: "Подготовить отчет",
-      description: "Квартальный отчет по продажам",
-      completed: false,
-    },
-    {
-      id: 3,
-      title: "Купить продукты",
-      description: "Молоко, яйца, хлеб",
-      completed: false,
-    },
-    {
-      id: 4,
-      title: "Сдать карточку ПП",
-      description: "Как только будет 3ий человек, сдать карточку",
-      completed: false,
-    },
-    {
-      id: 5,
-      title: "Сдать карточку ПП",
-      description: "Как только будет 3ий человек, сдать карточку",
-      completed: false,
-    },
-    {
-      id: 6,
-      title: "Сдать карточку ПП",
-      description: "Как только будет 3ий человек, сдать карточку",
-      completed: false,
-    },
-    {
-      id: 7,
-      title: "Сдать карточку ПП",
-      description: "Как только будет 3ий человек, сдать карточку",
-      completed: false,
-    },
-    {
-      id: 8,
-      title: "Сдать карточку ПП",
-      description: "Как только будет 3ий человек, сдать карточку",
-      completed: false,
-    },
-  ]);
-  const [balance, setBalance] = useState(1500);
-  const [isCompact, setIsCompact] = useState(
-    Dimensions.get("window").width < 764
-  );
+  const [tasks, setTasks] = useState([]);
+  const [gold, setBalance] = useState(0);
+  const [xp, setXp] = useState(0);
+  const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
+  const [taskIdToDelete, setTaskIdToDelete] = useState(null);
+
+  const [isCompact, setIsCompact] = useState(Dimensions.get("window").width < 764);
 
   useEffect(() => {
     const handleResize = ({ window }) => {
@@ -79,17 +40,202 @@ const Tasks = () => {
     return () => subscription?.remove();
   }, []);
 
-  const markAsDone = (taskId) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === taskId ? { ...task, completed: !task.completed } : task
-      )
-    );
+  useEffect(() => {
+    fetchUserTasksAndBalance();
+  }, []);
+
+  const fetchUserTasksAndBalance = async () => {
+    try {
+      // Получаем токены из локального хранилища
+      const { access, refresh } = await getToken();
+
+      // Проверяем, не истек ли access токен
+      if (isTokenExpired(access)) {
+        console.log("Access token истек, обновляем токен.");
+
+        // Если истек, пытаемся обновить токен
+        const { access: newAccess, refresh: newRefresh } = await refreshAccessToken(refresh, access);
+
+        // Обновляем токены в локальном хранилище
+        setToken({ access: newAccess, refresh: newRefresh });
+
+        // После обновления продолжаем запрос с новым токеном
+        await getUserTasksAndBalanceWithToken(newAccess);
+      } else {
+        await getUserTasksAndBalanceWithToken(access);
+      }
+    } catch (error) {
+      console.error("Ошибка при получении задач и баланса:", error);
+    }
   };
 
-  const deleteTask = (taskId) => {
-    setTasks(tasks.filter((task) => task.id !== taskId));
+  const getUserTasksAndBalanceWithToken = async (accessToken) => {
+    try {
+      // Tasks fetch logic remains the same
+      const tasksResponse = await fetch(`${API_BASE}/api/tasks/`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!tasksResponse.ok) {
+        throw new Error(`Ошибка при получении данных задач: ${tasksResponse.statusText}`);
+      }
+
+      const tasksData = await tasksResponse.json();
+      setTasks(tasksData);
+
+      // Character fetch logic with better error handling
+      try {
+        const characterResponse = await fetch(`${API_BASE}/api/character/me/`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        if (characterResponse.status === 404) {
+          // Character doesn't exist, create one
+          const createResponse = await fetch(`${API_BASE}/api/character/`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              name: `Hero_${Date.now()}`,
+              level: 1,
+              gold: 0,
+              xp: 0
+            }),
+          });
+
+          if (!createResponse.ok) {
+            throw new Error("Failed to create character");
+          }
+
+          const newCharacter = await createResponse.json();
+          setBalance(newCharacter.gold || 0);
+          setXp(newCharacter.xp || 0);
+        } else if (!characterResponse.ok) {
+          throw new Error(`Ошибка при получении данных героя: ${characterResponse.statusText}`);
+        } else {
+          const characterData = await characterResponse.json();
+          setBalance(characterData.gold || 0);
+          setXp(characterData.xp || 0);
+        }
+      } catch (error) {
+        console.error("Ошибка получения героя:", error.message);
+      }
+
+    } catch (error) {
+      console.error("Ошибка получения задач:", error.message);
+    }
   };
+
+  const markAsDone = async (taskId) => {
+    try {
+      const taskToUpdate = tasks.find((task) => task.id === taskId);
+      const updatedStatus = !taskToUpdate.is_completed;
+
+      const { access } = await getToken();
+      await updateTask(taskId, {
+        ...taskToUpdate,
+        completed: updatedStatus,
+      }, access);
+
+      const { reward_xp = 0, reward_gold = 0 } = taskToUpdate;
+
+      if (updatedStatus) {
+        // Если задача отмечена выполненной
+        const characterResponse = await fetch(`${API_BASE}/api/character/me/`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access}`,
+          },
+        });
+        const characterData = await characterResponse.json();
+        const currentXp = characterData.xp || 0;
+        const currentBalance = characterData.gold || 0;
+
+        const newXp = currentXp + reward_xp;
+        const newBalance = currentBalance + reward_gold;
+
+        await fetch(`${API_BASE}/api/tasks/${taskId}/complete/`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${access}`,
+          },
+        });
+
+        setXp(newXp);
+        setBalance(newBalance);
+        console.log("XP и Gold добавлены:", newXp, newBalance);
+      } else {
+        // Если задача снята с выполнения
+        const characterResponse = await fetch(`${API_BASE}/api/character/me/`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access}`,
+          },
+        });
+        const characterData = await characterResponse.json();
+        const currentXp = characterData.xp || 0;
+        const currentBalance = characterData.gold || 0;
+
+        const newXp = Math.max(currentXp - reward_xp, 0);
+        const newBalance = Math.max(currentBalance - reward_gold, 0);
+
+        await fetch(`${API_BASE}/api/tasks/${taskId}/uncomplete/`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${access}`,
+          },
+        });
+
+        setXp(newXp);
+        setBalance(newBalance);
+        console.log("XP и Gold вычтены:", newXp, newBalance);
+      }
+
+      const updatedTasks = tasks.map((task) =>
+        task.id === taskId ? { ...task, is_completed: updatedStatus } : task
+      );
+      setTasks(updatedTasks);
+    } catch (error) {
+      console.error("Ошибка при изменении статуса задачи:", error);
+    }
+  };
+
+  const confirmDeleteTask = (taskId) => {
+    setTaskIdToDelete(taskId);
+    setIsConfirmModalVisible(true);
+  };
+
+  const deleteTask = async () => {
+    try {
+      const { access } = await getToken();
+      await fetch(`${API_BASE}/api/tasks/${taskIdToDelete}/`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${access}`,
+        },
+      });
+
+      setTasks(tasks.filter((task) => task.id !== taskIdToDelete));
+      setIsConfirmModalVisible(false);
+      setTaskIdToDelete(null);
+    } catch (error) {
+      console.error("Ошибка при удалении задачи:", error);
+    }
+  };
+
 
   const handleEdit = (taskId) => {
     const taskToEdit = tasks.find((task) => task.id === taskId);
@@ -107,20 +253,51 @@ const Tasks = () => {
     setIsModalVisible(true);
   };
 
-  const handleSave = (updatedTask) => {
-    if (editingTask.id) {
-      if (tasks.some((task) => task.id === editingTask.id)) {
-        setTasks(
-          tasks.map((task) =>
-            task.id === editingTask.id ? { ...task, ...updatedTask } : task
-          )
-        );
-      } else {
-        setTasks([...tasks, updatedTask]);
+
+
+  const handleSave = async (updatedTask) => {
+    try {
+      let token = await getToken();
+      if (!token || !token.access) {
+        throw new Error("Токен отсутствует");
       }
+
+      if (isTokenExpired(token.access)) {
+        if (!token.refresh || isTokenExpired(token.refresh)) {
+          throw new Error("Требуется повторная авторизация");
+        }
+
+        const newTokens = await refreshAccessToken(token.refresh);
+        token = {
+          access: newTokens.access,
+          refresh: newTokens.refresh || token.refresh,
+        };
+        await setToken(token);
+      }
+
+      const taskData = {
+        title: updatedTask.title,
+        description: updatedTask.description,
+        is_completed: updatedTask.completed || false
+      };
+
+      const existingTaskIds = tasks.map(task => task.id);
+      if (existingTaskIds.includes(editingTask.id)) {
+        const updated = await updateTask(editingTask.id, taskData, token.access);
+        setTasks(tasks.map(t => t.id === updated.id ? updated : t));
+      } else {
+        const createdTask = await createTask(taskData, token.access);
+        setTasks([...tasks, createdTask]);
+      }
+
+      setIsModalVisible(false);
+    } catch (error) {
+      console.error("Ошибка при сохранении задачи:", error);
     }
-    setIsModalVisible(false);
   };
+
+
+
 
   const handleCancel = () => {
     setIsModalVisible(false);
@@ -132,20 +309,25 @@ const Tasks = () => {
         <View style={styles.container}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
-              <Ionicons name="checkmark-done-circle" size={30} color="#fff" />
+              <Ionicons name="checkmark-done-circle" size={40} color="#fff" />
               <Text style={styles.title}>Мои Задачи</Text>
             </View>
-            <View style={styles.balanceContainer}>
-              <Ionicons name="logo-bitcoin" size={20} color="#FFD700" />
-              <Text style={styles.balanceText}>{balance}</Text>
+
+            <View style={styles.statusContainer}>
+              <View style={styles.statusItem}>
+                <Ionicons name="cash-outline" size={20} color="#FFD700" />
+                <Text style={styles.statusText}>{gold}</Text>
+              </View>
+              <View style={styles.statusItem}>
+                <Ionicons name="school-outline" size={20} color="#FFD700" />
+                <Text style={styles.statusText}>{xp}</Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.createButtonContainer}>
-            <TouchableOpacity
-              style={styles.createButton}
-              onPress={handleCreateNew}
-            >
+
+          <View style={styles.createButtonWrapper}>
+            <TouchableOpacity style={styles.createButton} onPress={handleCreateNew}>
               <LinearGradient
                 colors={["#6a11cb", "#2575fc"]}
                 start={{ x: 0, y: 0 }}
@@ -155,30 +337,39 @@ const Tasks = () => {
                 <Ionicons name="add" size={26} color="#fff" />
               </LinearGradient>
             </TouchableOpacity>
-            <Text style={styles.createButtonText}>Добавить задачу</Text>
+            <Text style={styles.createButtonText}>Добавить</Text>
           </View>
-
-          <View style={styles.tasksOuterWrapper}>
-            <View
-              style={[
-                styles.tasksWrapper,
-                { flexDirection: isCompact ? "column" : "row" },
-              ]}
-            >
-              {tasks.map((task) => (
-                <TaskInfo
-                  key={task.id}
-                  title={task.title}
-                  description={task.description}
-                  completed={task.completed}
-                  onEdit={() => handleEdit(task.id)}
-                  onComplete={() => markAsDone(task.id)}
-                  onCancel={() => deleteTask(task.id)}
-                  isCompact={isCompact}
-                />
-              ))}
+          {tasks.length === 0 ? (
+            <View style={styles.noTasksContainer}>
+              <Text style={styles.noTasksText}>Задач пока нет</Text>
             </View>
-          </View>
+          ) : (
+            <View style={styles.tasksOuterWrapper}>
+              <View
+                style={[
+                  styles.tasksWrapper,
+                  { flexDirection: isCompact ? "column" : "row" },
+                ]}
+              >
+                {tasks.map((task) => (
+                  <TaskInfo
+                    key={task.id}
+                    title={task.title}
+                    description={task.description}
+                    completed={task.is_completed}
+                    onEdit={() => handleEdit(task.id)}
+                    onComplete={() => markAsDone(task.id)}
+                    onCancel={() => confirmDeleteTask(task.id)}
+                    gold={task.reward_gold || 0}
+                    xp={task.reward_xp || 0}
+                    isCompact={isCompact}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+
+
           <EditTaskModal
             visible={isModalVisible}
             task={editingTask}
@@ -186,6 +377,13 @@ const Tasks = () => {
             onCancel={handleCancel}
             isCompact={isCompact}
           />
+
+          <ConfirmDeleteModal
+            visible={isConfirmModalVisible}
+            onConfirm={deleteTask}
+            onCancel={() => setIsConfirmModalVisible(false)}
+          />
+
         </View>
       </ScrollView>
     </LinearGradient>
@@ -222,48 +420,59 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
   balanceText: {
     color: "#FFD700",
     marginLeft: 5,
     fontWeight: "600",
   },
+  noTasksContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    flex: 1,
+    marginTop: 100,  // Центрируем по вертикали
+  },
+  noTasksText: {
+    fontSize: 28,
+    fontWeight: "600",
+    color: "#ffffff",
+    marginBottom: 20,
+  },
   createButton: {
     width: 50,
     height: 50,
-    borderRadius: 20,
-    borderWidth: 4,
-    borderColor: "#FFFFFF",
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 6,
   },
+
+  createButtonWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 25,
+  },
+
   createButtonText: {
     color: "#FFFFFF",
     fontWeight: "600",
-    fontSize: 20,
-  },
-  createButtonContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  plusSign: {
-    color: "white",
-    fontSize: 26,
-    fontWeight: "bold",
+    fontSize: 22,
   },
   tasksWrapper: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     gap: 15,
   },
   tasksOuterWrapper: {
     alignSelf: "center",
-    width: "70%",
   },
   titleRow: {
     flexDirection: "row",
@@ -292,6 +501,51 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 6,
   },
+  balanceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  balanceText: {
+    color: "#fff",
+    marginLeft: 5,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  rewardsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  rewardsText: {
+    color: "#fff",
+    marginLeft: 5,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  statusContainer: {
+    //flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+
+  statusItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+
+  statusText: {
+    color: "#FFD700",
+    marginLeft: 6,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
 });
 
 export default Tasks;

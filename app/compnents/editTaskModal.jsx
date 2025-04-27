@@ -5,18 +5,41 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 
-const EditTaskModal = ({ visible, task, onSave, onCancel, isCompact }) => {
-  const [title, setTitle] = useState(task?.title || "");
-  const [description, setDescription] = useState(task?.description || "");
+const EditTaskModal = ({
+  visible,
+  task,
+  onSave,
+  onCancel,
+}) => {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+
+  const { width } = useWindowDimensions();
 
   useEffect(() => {
     setTitle(task?.title || "");
     setDescription(task?.description || "");
   }, [task]);
+
+  const handleSavePress = () => {
+    if (!title.trim()) {
+      console.log("Название не может быть пустым");
+      return;
+    }
+
+    const updatedTask = {
+      ...task,
+      title: title.trim(),
+      description: description.trim(),
+      completed: task?.completed || false,
+    };
+
+    onSave(updatedTask);
+  };
 
   return (
     <Modal
@@ -26,8 +49,15 @@ const EditTaskModal = ({ visible, task, onSave, onCancel, isCompact }) => {
       onRequestClose={onCancel}
     >
       <View style={styles.modalContainer}>
-        <View style={[styles.modalContent, { width: isCompact ? "90%" : 500 }]}>
-          <Text style={styles.modalTitle}>Редактировать задачу</Text>
+        <View
+          style={[
+            styles.modalContent,
+            { width: width < 764 ? "90%" : 500 },
+          ]}
+        >
+          <Text style={styles.modalTitle}>
+            {task?.id ? "Редактировать задачу" : "Создать задачу"}
+          </Text>
 
           <Text style={styles.label}>Название:</Text>
           <TextInput
@@ -57,7 +87,7 @@ const EditTaskModal = ({ visible, task, onSave, onCancel, isCompact }) => {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, styles.saveButton]}
-              onPress={() => onSave({ title, description })}
+              onPress={handleSavePress}
             >
               <Text style={styles.buttonText}>Сохранить</Text>
             </TouchableOpacity>

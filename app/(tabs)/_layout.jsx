@@ -90,15 +90,10 @@ const TabsLayout = () => {
                 Platform.OS === "web" && styles.webHoverable,
               ]}
             >
-              <LinearGradient
-                colors={["#6a11cb", "#2575fc"]}
-                start={{ x: 0, y: 1 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.desktopTab, isActive && styles.activeTab]}
-              >
+              <View style={[styles.desktopTab, isActive && styles.activeTab]}>
                 <Ionicons name={tab.icon} size={22} color="white" />
                 <Text style={styles.desktopTabText}>{tab.label}</Text>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -114,6 +109,7 @@ const TabsLayout = () => {
 
 const styles = StyleSheet.create({
   mobileMenu: {
+    flexDirection: "column",
     backgroundColor: "transparent",
     height: 70,
     borderTopWidth: 0,
@@ -153,6 +149,7 @@ const styles = StyleSheet.create({
     cursor: "pointer",
   },
   desktopTab: {
+    backgroundColor: "#6D8BDE",
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 10,

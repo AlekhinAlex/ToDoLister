@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import React, { useState } from "react";
-import { Ionicons } from "@expo/vector-icons"; // For icons
+import { Ionicons } from "@expo/vector-icons";
 
 const FormField = ({
   title,
@@ -19,21 +19,18 @@ const FormField = ({
   ...props
 }) => {
   const [showPassword, setShowPassword] = useState(false);
-  const [isFocused, setIsFocused] = useState(false); // Track focus state
+  const [isFocused, setIsFocused] = useState(false);
 
   return (
     <View style={styles.container}>
-      {/* Label */}
       <Text style={styles.label}>{name}</Text>
 
-      {/* Input Container */}
       <View
         style={[
           styles.inputContainer,
           isFocused && styles.inputContainerFocused,
         ]}
       >
-        {/* Icon (optional) */}
         {iconName && (
           <Ionicons
             name={iconName}
@@ -43,20 +40,18 @@ const FormField = ({
           />
         )}
 
-        {/* Input Field */}
         <TextInput
           style={styles.input}
           value={value}
           placeholder={placeholder}
           placeholderTextColor="#999"
-          secureTextEntry={secureTextEntry && !showPassword} // Toggle password visibility
+          secureTextEntry={secureTextEntry && !showPassword}
           onChangeText={handleChangeText}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           {...props}
         />
 
-        {/* Show/Hide Password Button */}
         {secureTextEntry && (
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}
@@ -79,8 +74,7 @@ export default FormField;
 const styles = StyleSheet.create({
   container: {
     marginBottom: 20,
-    width: "80%",
-    alignSelf: "center",
+    width: "100%",
   },
   label: {
     fontSize: 16,
