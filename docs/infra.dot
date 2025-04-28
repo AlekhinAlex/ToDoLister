@@ -1,0 +1,8 @@
+digraph INFRA {
+  node [ color = "black", fillcolor = "#E6E6E6", height =1, style = "filled,bold,rounded", fontname = "Arial" ];
+  "Character" [ label = "Character
+(Django::Model)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Character.xp" [ label = "Character.xp
+(Django::PositiveIntegerField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Character.xp" -> "Character";
+}
