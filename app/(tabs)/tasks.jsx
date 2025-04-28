@@ -139,32 +139,18 @@ const Tasks = () => {
   const markAsDone = async (taskId) => {
     try {
       const taskToUpdate = tasks.find((task) => task.id === taskId);
-      const updatedStatus = !taskToUpdate.is_completed;
-
+      const wasCompleted = taskToUpdate.is_completed;
+      const updatedStatus = !wasCompleted;
       const { access } = await getToken();
+
+      // Обновляем статус задачи на сервере
       await updateTask(taskId, {
         ...taskToUpdate,
         completed: updatedStatus,
       }, access);
 
-      const { reward_xp = 0, reward_gold = 0 } = taskToUpdate;
-
       if (updatedStatus) {
-        // Если задача отмечена выполненной
-        const characterResponse = await fetch(`${API_BASE}/api/character/me/`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${access}`,
-          },
-        });
-        const characterData = await characterResponse.json();
-        const currentXp = characterData.xp || 0;
-        const currentBalance = characterData.gold || 0;
-
-        const newXp = currentXp + reward_xp;
-        const newBalance = currentBalance + reward_gold;
-
+        // Выполняем задачу - добавляем награды
         await fetch(`${API_BASE}/api/tasks/${taskId}/complete/`, {
           method: "POST",
           headers: {
@@ -172,25 +158,11 @@ const Tasks = () => {
           },
         });
 
-        setXp(newXp);
-        setBalance(newBalance);
-        console.log("XP и Gold добавлены:", newXp, newBalance);
+        const { reward_xp = 0, reward_gold = 0 } = taskToUpdate;
+        setXp((prevXp) => prevXp + reward_xp);
+        setBalance((prevGold) => prevGold + reward_gold);
       } else {
-        // Если задача снята с выполнения
-        const characterResponse = await fetch(`${API_BASE}/api/character/me/`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${access}`,
-          },
-        });
-        const characterData = await characterResponse.json();
-        const currentXp = characterData.xp || 0;
-        const currentBalance = characterData.gold || 0;
-
-        const newXp = Math.max(currentXp - reward_xp, 0);
-        const newBalance = Math.max(currentBalance - reward_gold, 0);
-
+        // Возобновляем задачу - вычитаем награды ТОЛЬКО если задача была выполнена
         await fetch(`${API_BASE}/api/tasks/${taskId}/uncomplete/`, {
           method: "POST",
           headers: {
@@ -198,19 +170,22 @@ const Tasks = () => {
           },
         });
 
-        setXp(newXp);
-        setBalance(newBalance);
-        console.log("XP и Gold вычтены:", newXp, newBalance);
+        const { reward_xp = 0, reward_gold = 0 } = taskToUpdate;
+        setXp((prevXp) => prevXp - reward_xp);
+        setBalance((prevGold) => prevGold - reward_gold);
       }
 
+      // Обновляем локальное состояние задач
       const updatedTasks = tasks.map((task) =>
         task.id === taskId ? { ...task, is_completed: updatedStatus } : task
       );
       setTasks(updatedTasks);
+
     } catch (error) {
       console.error("Ошибка при изменении статуса задачи:", error);
     }
   };
+
 
   const confirmDeleteTask = (taskId) => {
     setTaskIdToDelete(taskId);
@@ -432,7 +407,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     flex: 1,
-    marginTop: 100,  // Центрируем по вертикали
+    marginTop: 100,
   },
   noTasksText: {
     fontSize: 28,
@@ -472,6 +447,7 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   tasksOuterWrapper: {
+
     alignSelf: "center",
   },
   titleRow: {
@@ -524,7 +500,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   statusContainer: {
-    //flexDirection: "row",
     alignItems: "center",
     gap: 8,
     marginTop: 10,
