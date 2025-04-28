@@ -14,7 +14,8 @@ router.register(r'register', RegisterViewSet, basename='register')
 router.register(r'tasks', TaskViewSet)
 router.register(r'user', UserViewSet, basename='user')
 router.register(r'logout', LogoutViewSet, basename='logout')
-router.register(r'character', CharacterViewSet)
+router.register(r'character', CharacterViewSet, basename='character')
+
 
 urlpatterns = [
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),

@@ -34,17 +34,19 @@ class Shop(models.Model):
         ('hair', 'Hair'),
         ('headwear', 'Headwear'),
         ('top', 'Top'),
-        ('bootom', 'Bottom'),
+        ('bottom', 'Bottom'),
         ('boots', 'Boots'),
-        ('skin', 'Skin'),
+        #('skin', 'Skin'),
     ]
     type = models.CharField(max_length=20, choices=ITEM_TYPES)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     required_xp = models.PositiveIntegerField(default=0)
-    price =  models.PositiveIntegerField(default=0)
-    is_purchased = models.BooleanField(blank=False, default=False)
-    image_url = models.URLField(blank=True, null=True)
+    price = models.PositiveIntegerField(default=0)
+    is_purchased = models.BooleanField(default=False)
+    image_preview_url = models.URLField(blank=True, null=True)  # картинка для магазина
+    image_character_url = models.URLField(blank=True, null=True)  # картинка для персонажа
+
 
 class Inventory(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='inventory')

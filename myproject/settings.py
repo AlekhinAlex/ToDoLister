@@ -122,9 +122,9 @@ DATABASES = {
 
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
 
-        'NAME':'tododb',
+        'NAME':'tododb_v1',
 
-        'USER': 'purple',
+        'USER': 'todolist',
 
         'PASSWORD': 'ADmIN123',
 

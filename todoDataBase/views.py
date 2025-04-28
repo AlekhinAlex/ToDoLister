@@ -92,7 +92,7 @@ class CharacterViewSet(viewsets.ViewSet):
 
 
 class TaskViewSet(viewsets.ModelViewSet):
-    queryset = Task.objects.all()  # Add this if missing
+    queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -108,40 +108,42 @@ class TaskViewSet(viewsets.ModelViewSet):
         if not task.is_completed:
             task.is_completed = True
             task.save()
-            character = Character.objects.get(user=request.user)
-            character.xp += task.reward_xp
-            character.gold += task.reward_gold
-            character.save()
+            user = request.user
+            user.xp += task.reward_xp
+            user.gold += task.reward_gold
+            user.save()
 
             return Response({
                 'status': 'Task completed.',
                 'reward_xp': task.reward_xp,
                 'reward_gold': task.reward_gold,
-                'character': CharacterSerializer(character).data,
+                'user': UserSerializer(user).data,
             })
         else:
             return Response({'status': 'Task already completed.'}, status=400)
+
     @action(detail=True, methods=['post'])
     def uncomplete(self, request, pk=None):
         task = self.get_object()
         if task.is_completed:
             task.is_completed = False
             task.save()
-            character = Character.objects.get(user=request.user)
+            user = request.user
 
             # Проверяем, чтобы не уйти в минус
-            character.xp = max(0, character.xp - task.reward_xp)
-            character.gold = max(0, character.gold - task.reward_gold)
-            character.save()
+            user.xp = max(0, user.xp - task.reward_xp)
+            user.gold = max(0, user.gold - task.reward_gold)
+            user.save()
 
             return Response({
                 'status': 'Task uncompleted.',
                 'reward_xp': -task.reward_xp,
                 'reward_gold': -task.reward_gold,
-                'character': CharacterSerializer(character).data,
+                'user': UserSerializer(user).data,
             })
         else:
             return Response({'status': 'Task is not completed.'}, status=400)
+
 
 
 # Add TokenObtainPairView and TokenRefreshView for login functionality

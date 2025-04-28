@@ -67,12 +67,23 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
         refresh = RefreshToken.for_user(user)
+
+        # Дать дефолтные предметы
+        self.give_default_items(user)
+
         return {
             'user': user,
             'access': str(refresh.access_token),
             'refresh': str(refresh)
         }
-
+    def give_default_items(self, user):
+        default_items = Shop.objects.filter(is_purchased=True)
+        for item in default_items:
+            Inventory.objects.create(
+                user=user,
+                item=item,
+                is_equipped=True,  # Можешь выбрать True для первого базового шмота
+            )
 
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
