@@ -14,6 +14,9 @@ import EditTaskModal from "../compnents/editTaskModal";  // Предположи
 import { isTokenExpired, refreshAccessToken } from "./lib/authTokenManager";  // Функции для проверки и обновления токенов
 import { getToken, setToken } from "./lib/storage";  // Функции для работы с токенами
 import { createTask, updateTask } from "./lib/api";  // Функции для отправки задач на сервер
+import { Alert } from "react-native"; // Добавь импорт
+import ConfirmDeleteModal from "../compnents/confirmDeleteModal";  // путь проверь
+
 
 const API_BASE = "http://127.0.0.1:8000";  // Базовый URL API
 
@@ -23,6 +26,9 @@ const Tasks = () => {
   const [tasks, setTasks] = useState([]);
   const [gold, setBalance] = useState(0);
   const [xp, setXp] = useState(0);
+  const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
+  const [taskIdToDelete, setTaskIdToDelete] = useState(null);
+
   const [isCompact, setIsCompact] = useState(Dimensions.get("window").width < 764);
 
   useEffect(() => {
@@ -65,6 +71,7 @@ const Tasks = () => {
 
   const getUserTasksAndBalanceWithToken = async (accessToken) => {
     try {
+      // Tasks fetch logic remains the same
       const tasksResponse = await fetch(`${API_BASE}/api/tasks/`, {
         method: "GET",
         headers: {
@@ -78,76 +85,72 @@ const Tasks = () => {
       }
 
       const tasksData = await tasksResponse.json();
-      console.log("Полученные данные задач:", tasksData);  // Убедитесь, что данные корректны
       setTasks(tasksData);
 
-    } catch (error) {
-      console.error("Ошибка получения задач:", error.message);
-    }
-
-    try {
-      const characterResponse = await fetch(`${API_BASE}/api/character/me/`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!characterResponse.ok) {
-        throw new Error(`Ошибка при получении данных героя: ${characterResponse.statusText}`);
-      }
-
-      const characterData = await characterResponse.json();
-      console.log("Полученные данные героя:", characterData);
-
-      // Извлеките нужные данные, например:
-      const { gold, xp } = characterData;
-      setBalance(gold);  // Если баланс передается в данных героя
-      setXp(xp);  // Если опыт передается в данных героя
-
-    } catch (error) {
-      console.error("Ошибка получения героя:", error.message);
-    }
-  };
-
-
-  const markAsDone = async (taskId) => {
-    try {
-      const taskToUpdate = tasks.find((task) => task.id === taskId);
-      const updatedStatus = !taskToUpdate.is_completed;
-
-      // Обновим задачу на сервере, передав всю задачу, не только измененное поле
-      const { access } = await getToken();
-      await updateTask(taskId, {
-        ...taskToUpdate,  // Передаем все поля задачи
-        completed: updatedStatus,  // Только статус меняется
-      }, access);
-
-      // Логика с XP и Gold
-      if (updatedStatus) {
-        const { reward_xp = 0, reward_gold = 0 } = taskToUpdate;
-
+      // Character fetch logic with better error handling
+      try {
         const characterResponse = await fetch(`${API_BASE}/api/character/me/`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${access}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         });
-        if (!characterResponse.ok) {
+
+        if (characterResponse.status === 404) {
+          // Character doesn't exist, create one
+          const createResponse = await fetch(`${API_BASE}/api/character/`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              name: `Hero_${Date.now()}`,
+              level: 1,
+              gold: 0,
+              xp: 0
+            }),
+          });
+
+          if (!createResponse.ok) {
+            throw new Error("Failed to create character");
+          }
+
+          const newCharacter = await createResponse.json();
+          setBalance(newCharacter.gold || 0);
+          setXp(newCharacter.xp || 0);
+        } else if (!characterResponse.ok) {
           throw new Error(`Ошибка при получении данных героя: ${characterResponse.statusText}`);
+        } else {
+          const characterData = await characterResponse.json();
+          setBalance(characterData.gold || 0);
+          setXp(characterData.xp || 0);
         }
+      } catch (error) {
+        console.error("Ошибка получения героя:", error.message);
+      }
 
-        const characterData = await characterResponse.json();
-        console.log("Полученные данные героя:", characterData);
+    } catch (error) {
+      console.error("Ошибка получения задач:", error.message);
+    }
+  };
 
-        const currentXp = characterData.xp || 0;
-        const currentBalance = characterData.gold || 0;
+  const markAsDone = async (taskId) => {
+    try {
+      const taskToUpdate = tasks.find((task) => task.id === taskId);
+      const wasCompleted = taskToUpdate.is_completed;
+      const updatedStatus = !wasCompleted;
+      const { access } = await getToken();
 
-        const newXp = currentXp + reward_xp;
-        const newBalance = currentBalance + reward_gold;
+      // Обновляем статус задачи на сервере
+      await updateTask(taskId, {
+        ...taskToUpdate,
+        completed: updatedStatus,
+      }, access);
 
+      if (updatedStatus) {
+        // Выполняем задачу - добавляем награды
         await fetch(`${API_BASE}/api/tasks/${taskId}/complete/`, {
           method: "POST",
           headers: {
@@ -155,30 +158,44 @@ const Tasks = () => {
           },
         });
 
+        const { reward_xp = 0, reward_gold = 0 } = taskToUpdate;
+        setXp((prevXp) => prevXp + reward_xp);
+        setBalance((prevGold) => prevGold + reward_gold);
+      } else {
+        // Возобновляем задачу - вычитаем награды ТОЛЬКО если задача была выполнена
+        await fetch(`${API_BASE}/api/tasks/${taskId}/uncomplete/`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${access}`,
+          },
+        });
 
-
-        setXp(newXp);
-        setBalance(newBalance);
-        console.log("XP и Gold обновлены:", newXp, newBalance);
+        const { reward_xp = 0, reward_gold = 0 } = taskToUpdate;
+        setXp((prevXp) => prevXp - reward_xp);
+        setBalance((prevGold) => prevGold - reward_gold);
       }
 
-      // Обновим состояние локально
+      // Обновляем локальное состояние задач
       const updatedTasks = tasks.map((task) =>
         task.id === taskId ? { ...task, is_completed: updatedStatus } : task
       );
       setTasks(updatedTasks);
+
     } catch (error) {
       console.error("Ошибка при изменении статуса задачи:", error);
     }
   };
 
 
+  const confirmDeleteTask = (taskId) => {
+    setTaskIdToDelete(taskId);
+    setIsConfirmModalVisible(true);
+  };
 
-
-  const deleteTask = async (taskId) => {
+  const deleteTask = async () => {
     try {
       const { access } = await getToken();
-      await fetch(`${API_BASE}/api/tasks/${taskId}/`, {
+      await fetch(`${API_BASE}/api/tasks/${taskIdToDelete}/`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -186,11 +203,14 @@ const Tasks = () => {
         },
       });
 
-      setTasks(tasks.filter((task) => task.id !== taskId));
+      setTasks(tasks.filter((task) => task.id !== taskIdToDelete));
+      setIsConfirmModalVisible(false);
+      setTaskIdToDelete(null);
     } catch (error) {
       console.error("Ошибка при удалении задачи:", error);
     }
   };
+
 
   const handleEdit = (taskId) => {
     const taskToEdit = tasks.find((task) => task.id === taskId);
@@ -314,7 +334,7 @@ const Tasks = () => {
                     completed={task.is_completed}
                     onEdit={() => handleEdit(task.id)}
                     onComplete={() => markAsDone(task.id)}
-                    onCancel={() => deleteTask(task.id)}
+                    onCancel={() => confirmDeleteTask(task.id)}
                     gold={task.reward_gold || 0}
                     xp={task.reward_xp || 0}
                     isCompact={isCompact}
@@ -331,6 +351,12 @@ const Tasks = () => {
             onSave={handleSave}
             onCancel={handleCancel}
             isCompact={isCompact}
+          />
+
+          <ConfirmDeleteModal
+            visible={isConfirmModalVisible}
+            onConfirm={deleteTask}
+            onCancel={() => setIsConfirmModalVisible(false)}
           />
 
         </View>
@@ -381,7 +407,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     flex: 1,
-    marginTop: 100,  // Центрируем по вертикали
+    marginTop: 100,
   },
   noTasksText: {
     fontSize: 28,
@@ -421,6 +447,7 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   tasksOuterWrapper: {
+
     alignSelf: "center",
   },
   titleRow: {
@@ -473,7 +500,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   statusContainer: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 8,
     marginTop: 10,
