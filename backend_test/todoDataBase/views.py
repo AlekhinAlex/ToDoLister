@@ -226,8 +226,29 @@ class TaskViewSet(viewsets.ModelViewSet):
                 'user': UserSerializer(user).data,
             })
         else:
-            return Response({'status': 'Task is not completed.'}, status=400)
-
+            return Response({'status': 'Task already uncompleted.'}, status=400)
+        
+    @action(detail=True, methods=['post'], url_path='delete')
+    def delete(self, request, pk=None):
+        task = self.get_object()
+        if task.is_completed:
+            task.delete()
+            return Response({'status': 'Task deleted.'}, status=204)
+        else:
+            print("aborting")
+            user = request.user
+            
+            user.xp = max(0, user.xp - 2 * task.reward_xp)
+            user.gold = max(0, user.gold - 2 * task.reward_gold)
+            user.save() 
+            task.delete()
+            
+            return Response({
+                'status': "Task aborted.",
+                'user': UserSerializer(user).data,
+            })
+        
+        
 
 
 # Add TokenObtainPairView and TokenRefreshView for login functionality

@@ -26,6 +26,12 @@ class Task(models.Model):
         (4, 'Hard'),
         (5, 'Very Hard'),
     ]
+    
+    TYPE_CHOICES = [
+        (1, 'Daily'),
+        (2, 'Weekly'),
+        (3, 'Permanent'),
+    ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tasks')
     title = models.CharField(max_length=200)
@@ -33,6 +39,7 @@ class Task(models.Model):
     is_completed = models.BooleanField(default=False)
     due_date = models.DateTimeField(null=True, blank=True)
     difficulty = models.PositiveSmallIntegerField(choices=DIFFICULTY_CHOICES, default=3)  # Default to Medium
+    type = models.PositiveSmallIntegerField(choices=TYPE_CHOICES, default=3)
     base_reward_xp = models.PositiveIntegerField(default=5)  # Base XP for medium difficulty
     base_reward_gold = models.PositiveIntegerField(default=10)  # Base gold for medium difficulty
     reward_xp = models.PositiveIntegerField(editable=False)  # Calculated field
@@ -53,6 +60,12 @@ class Task(models.Model):
         self.reward_xp = int(self.base_reward_xp * difficulty_multiplier[self.difficulty])
         self.reward_gold = int(self.base_reward_gold * difficulty_multiplier[self.difficulty])
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Handle deletion of the task
+        super().delete(*args, **kwargs)
+
+        
 
 class Shop(models.Model):
     ITEM_TYPES = [

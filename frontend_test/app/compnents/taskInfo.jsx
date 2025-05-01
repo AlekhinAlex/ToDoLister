@@ -23,6 +23,17 @@ const difficultyColors = {
   4: '#F59E0B',
   5: '#F87171',
 };
+const taskTypeLabels = {
+  1: 'Ежедневное',
+  2: 'Еженедельное',
+  3: 'Постоянное',
+};
+
+const taskTypeColors = {
+  1: '#5DC59C',  // Легкий мятный (для ежедневных)
+  2: '#3474DC',  // Яркий синий (для еженедельных)
+  3: '#E4A522',  // Теплый янтарный (для постоянных)
+};
 
 const TaskInfo = ({
   title,
@@ -34,6 +45,7 @@ const TaskInfo = ({
   gold = 0,
   xp = 0,
   difficulty = 3,
+  type = 1,  // Добавим тип задания
 }) => {
   const [isCompact, setIsCompact] = useState(
     Dimensions.get("window").width < 764
@@ -84,6 +96,18 @@ const TaskInfo = ({
                   {difficultyLabels[difficulty]}
                 </Text>
               </View>
+              {/* Новый элемент для отображения типа задания */}
+              <View
+                style={[
+                  styles.difficultyBadge,
+                  { backgroundColor: taskTypeColors[type] },
+                  styles.typeBadge,
+                ]}
+              >
+                <Text style={[styles.difficultyText, { color: 'white' }]}>
+                  {taskTypeLabels[type]}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -99,10 +123,7 @@ const TaskInfo = ({
         </View>
 
         <View
-          style={[
-            styles.actionButtons,
-            !isCompact && styles.webActionButtons,
-          ]}
+          style={[styles.actionButtons, !isCompact && styles.webActionButtons]}
         >
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
@@ -149,7 +170,6 @@ const TaskInfo = ({
             )}
           </TouchableOpacity>
         </View>
-
       </View>
     </View>
   );
@@ -198,6 +218,8 @@ const styles = StyleSheet.create({
   difficultyContainer: {
     marginTop: 12,
     alignItems: "flex-start",
+    flexDirection: "row", // Сделаем их рядом
+    gap: 8, // Задаем отступ между ними
   },
   difficultyBadge: {
     paddingVertical: 5,

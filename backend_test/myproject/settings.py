@@ -124,7 +124,7 @@ DATABASES = {
 
         'NAME':'tododb_v1',
 
-        'USER': 'todolist',
+        'USER': 'purple',
 
         'PASSWORD': 'ADmIN123',
 

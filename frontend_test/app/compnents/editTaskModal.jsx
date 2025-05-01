@@ -18,6 +18,7 @@ const EditTaskModal = ({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [difficulty, setDifficulty] = useState(3); // Default to Medium (3)
+  const [type, setType] = useState(3); // Default to permanent (3)
 
   const { width } = useWindowDimensions();
 
@@ -26,7 +27,9 @@ const EditTaskModal = ({
     setTitle(task?.title || "");
     setDescription(task?.description || "");
     setDifficulty(task?.difficulty || 3);
+    setType(task?.type || 3);
   }, [task]);
+  
 
   // Handle saving the task with updated difficulty
   const handleSavePress = () => {
@@ -40,6 +43,7 @@ const EditTaskModal = ({
       title: title.trim(),
       description: description.trim(),
       difficulty, // Send the updated difficulty
+      type,
       completed: task?.completed || false,
     };
 
@@ -54,6 +58,11 @@ const EditTaskModal = ({
     { value: 3, label: 'Средне' },
     { value: 4, label: 'Сложно' },
     { value: 5, label: 'Очень сложно' },
+  ];
+  const typeOptions = [
+    { value: 1, label: 'Ежедневное' },
+    { value: 2, label: 'Еженедельное' },
+    { value: 3, label: 'Постоянное' }
   ];
 
   return (
@@ -103,6 +112,22 @@ const EditTaskModal = ({
                   difficulty === option.value && styles.selectedDifficulty
                 ]}
                 onPress={() => setDifficulty(option.value)}
+              >
+                <Text style={styles.difficultyButtonText}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Тип задания:</Text>
+          <View style={styles.difficultyContainer}>
+            {typeOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.difficultyButton,
+                  type === option.value && styles.selectedDifficulty,
+                ]}
+                onPress={() => setType(option.value)}
               >
                 <Text style={styles.difficultyButtonText}>{option.label}</Text>
               </TouchableOpacity>

@@ -26,6 +26,7 @@ const Tasks = () => {
   const [xp, setXp] = useState(0);
   const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
   const [taskIdToDelete, setTaskIdToDelete] = useState(null);
+  const [deletingTask, setDeletingTask] = useState(null)
 
   const [isCompact, setIsCompact] = useState(Dimensions.get("window").width < 764);
 
@@ -156,19 +157,31 @@ const Tasks = () => {
 
   const confirmDeleteTask = (taskId) => {
     setTaskIdToDelete(taskId);
+    const deletingTask = tasks.find((task) => task.id === taskId);
+    setDeletingTask(deletingTask);
     setIsConfirmModalVisible(true);
   };
 
   const deleteTask = async () => {
     try {
+      const taskToDelete = tasks.find((task) => task.id === taskIdToDelete);
       const { access } = await getToken();
-      await fetch(`${API_BASE}/api/tasks/${taskIdToDelete}/`, {
-        method: "DELETE",
+
+      await fetch(`${API_BASE}/api/tasks/${taskIdToDelete}/delete/`, {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${access}`,
         },
       });
+
+      if (taskToDelete && !taskToDelete.is_completed) {
+        const xpPenalty = 2 * (taskToDelete.reward_xp || 0);
+        const goldPenalty = 2 * (taskToDelete.reward_gold || 0);
+  
+        setXp((prevXp) => Math.max(0, prevXp - xpPenalty));
+        setBalance((prevGold) => Math.max(0, prevGold - goldPenalty));
+      }
 
       setTasks(tasks.filter((task) => task.id !== taskIdToDelete));
       setIsConfirmModalVisible(false);
@@ -218,6 +231,7 @@ const Tasks = () => {
         title: updatedTask.title,
         description: updatedTask.description,
         difficulty: updatedTask.difficulty, // добавляем сложность
+        type: updatedTask.type,
         is_completed: updatedTask.completed || false
       };
 
@@ -295,6 +309,7 @@ const Tasks = () => {
                     title={task.title}
                     description={task.description}
                     difficulty={task.difficulty}
+                    type={task.type}
                     completed={task.is_completed}
                     onEdit={() => handleEdit(task.id)}
                     onComplete={() => markAsDone(task.id)}
@@ -316,10 +331,14 @@ const Tasks = () => {
             isCompact={isCompact}
           />
 
+
           <ConfirmDeleteModal
             visible={isConfirmModalVisible}
             onConfirm={deleteTask}
             onCancel={() => setIsConfirmModalVisible(false)}
+            isCompleted={deletingTask ? deletingTask.is_completed : false} // Добавлена проверка
+            penaltyXp={deletingTask ? 2 * deletingTask.reward_xp : 0}  // Добавлена проверка
+            penaltyGold={deletingTask ? 2 * deletingTask.reward_gold : 0}  // Добавлена проверка
           />
         </View>
       </ScrollView>
