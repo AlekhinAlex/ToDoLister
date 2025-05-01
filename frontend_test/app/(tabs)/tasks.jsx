@@ -16,7 +16,6 @@ import { getToken, setToken } from "./lib/storage";
 import { createTask, updateTask } from "./lib/api";
 import ConfirmDeleteModal from "../compnents/confirmDeleteModal";
 
-
 const API_BASE = "http://127.0.0.1:8000";  // Базовый URL API
 
 const Tasks = () => {
@@ -45,20 +44,15 @@ const Tasks = () => {
 
   const fetchUserTasksAndBalance = async () => {
     try {
-      // Получаем токены из локального хранилища
       const { access, refresh } = await getToken();
 
-      // Проверяем, не истек ли access токен
       if (isTokenExpired(access)) {
         console.log("Access token истек, обновляем токен.");
 
-        // Если истек, пытаемся обновить токен
         const { access: newAccess, refresh: newRefresh } = await refreshAccessToken(refresh, access);
 
-        // Обновляем токены в локальном хранилище
         setToken({ access: newAccess, refresh: newRefresh });
 
-        // После обновления продолжаем запрос с новым токеном
         await getUserTasksAndBalanceWithToken(newAccess);
       } else {
         await getUserTasksAndBalanceWithToken(access);
@@ -70,7 +64,6 @@ const Tasks = () => {
 
   const getUserTasksAndBalanceWithToken = async (accessToken) => {
     try {
-      // Tasks fetch logic remains the same
       const tasksResponse = await fetch(`${API_BASE}/api/tasks/`, {
         method: "GET",
         headers: {
@@ -96,7 +89,7 @@ const Tasks = () => {
         });
 
         if (characterResponse.status === 404) {
-          const newCharacter = await createResponse.json();
+          const newCharacter = await characterResponse.json();
           setBalance(newCharacter.gold || 0);
           setXp(newCharacter.xp || 0);
         } else if (!characterResponse.ok) {
@@ -122,14 +115,12 @@ const Tasks = () => {
       const updatedStatus = !wasCompleted;
       const { access } = await getToken();
 
-      // Обновляем статус задачи на сервере
       await updateTask(taskId, {
         ...taskToUpdate,
         completed: updatedStatus,
       }, access);
 
       if (updatedStatus) {
-        // Выполняем задачу - добавляем награды
         await fetch(`${API_BASE}/api/tasks/${taskId}/complete/`, {
           method: "POST",
           headers: {
@@ -141,7 +132,6 @@ const Tasks = () => {
         setXp((prevXp) => prevXp + reward_xp);
         setBalance((prevGold) => prevGold + reward_gold);
       } else {
-        // Возобновляем задачу - вычитаем награды ТОЛЬКО если задача была выполнена
         await fetch(`${API_BASE}/api/tasks/${taskId}/uncomplete/`, {
           method: "POST",
           headers: {
@@ -154,7 +144,6 @@ const Tasks = () => {
         setBalance((prevGold) => prevGold - reward_gold);
       }
 
-      // Обновляем локальное состояние задач
       const updatedTasks = tasks.map((task) =>
         task.id === taskId ? { ...task, is_completed: updatedStatus } : task
       );
@@ -164,7 +153,6 @@ const Tasks = () => {
       console.error("Ошибка при изменении статуса задачи:", error);
     }
   };
-
 
   const confirmDeleteTask = (taskId) => {
     setTaskIdToDelete(taskId);
@@ -190,7 +178,6 @@ const Tasks = () => {
     }
   };
 
-
   const handleEdit = (taskId) => {
     const taskToEdit = tasks.find((task) => task.id === taskId);
     setEditingTask(taskToEdit);
@@ -206,8 +193,6 @@ const Tasks = () => {
     });
     setIsModalVisible(true);
   };
-
-
 
   const handleSave = async (updatedTask) => {
     try {
@@ -232,6 +217,7 @@ const Tasks = () => {
       const taskData = {
         title: updatedTask.title,
         description: updatedTask.description,
+        difficulty: updatedTask.difficulty, // добавляем сложность
         is_completed: updatedTask.completed || false
       };
 
@@ -249,8 +235,6 @@ const Tasks = () => {
       console.error("Ошибка при сохранении задачи:", error);
     }
   };
-
-
 
 
   const handleCancel = () => {
@@ -279,7 +263,6 @@ const Tasks = () => {
             </View>
           </View>
 
-
           <View style={styles.createButtonWrapper}>
             <TouchableOpacity style={styles.createButton} onPress={handleCreateNew}>
               <LinearGradient
@@ -293,6 +276,7 @@ const Tasks = () => {
             </TouchableOpacity>
             <Text style={styles.createButtonText}>Добавить</Text>
           </View>
+
           {tasks.length === 0 ? (
             <View style={styles.noTasksContainer}>
               <Text style={styles.noTasksText}>Задач пока нет</Text>
@@ -310,6 +294,7 @@ const Tasks = () => {
                     key={task.id}
                     title={task.title}
                     description={task.description}
+                    difficulty={task.difficulty}
                     completed={task.is_completed}
                     onEdit={() => handleEdit(task.id)}
                     onComplete={() => markAsDone(task.id)}
@@ -322,7 +307,6 @@ const Tasks = () => {
               </View>
             </View>
           )}
-
 
           <EditTaskModal
             visible={isModalVisible}
@@ -337,7 +321,6 @@ const Tasks = () => {
             onConfirm={deleteTask}
             onCancel={() => setIsConfirmModalVisible(false)}
           />
-
         </View>
       </ScrollView>
     </LinearGradient>
@@ -364,17 +347,56 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 15,
   },
-  balanceContainer: {
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: "800",
+    color: "#ffffff",
+    textShadowColor: "rgba(0,0,0,0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  createButtonWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 25,
+  },
+  createButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 22,
+  },
+  tasksWrapper: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 15,
+  },
+  tasksOuterWrapper: {
+    alignSelf: "center",
+  },
+  statusContainer: {
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+  statusItem: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  balanceText: {
+  statusText: {
     color: "#FFD700",
-    marginLeft: 5,
+    marginLeft: 6,
+    fontSize: 16,
     fontWeight: "600",
   },
   noTasksContainer: {
@@ -401,98 +423,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 6,
   },
-  createButtonWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 25,
-  },
-
-  createButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-    fontSize: 22,
-  },
-  tasksWrapper: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 15,
-  },
-  tasksOuterWrapper: {
-    alignSelf: "center",
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-
-  title: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: "#ffffff",
-    textShadowColor: "rgba(0,0,0,0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-
   gradientButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
+    borderRadius: 25,
   },
-  balanceContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  balanceText: {
-    color: "#fff",
-    marginLeft: 5,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  rewardsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  rewardsText: {
-    color: "#fff",
-    marginLeft: 5,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  statusContainer: {
-    alignItems: "center",
-    gap: 8,
-    marginTop: 10,
-  },
-
-  statusItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-
-  statusText: {
-    color: "#FFD700",
-    marginLeft: 6,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
 });
 
 export default Tasks;

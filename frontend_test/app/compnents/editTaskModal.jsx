@@ -17,14 +17,18 @@ const EditTaskModal = ({
 }) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [difficulty, setDifficulty] = useState(3); // Default to Medium (3)
 
   const { width } = useWindowDimensions();
 
+  // Set initial task data when modal opens or task changes
   useEffect(() => {
     setTitle(task?.title || "");
     setDescription(task?.description || "");
+    setDifficulty(task?.difficulty || 3);
   }, [task]);
 
+  // Handle saving the task with updated difficulty
   const handleSavePress = () => {
     if (!title.trim()) {
       console.log("Название не может быть пустым");
@@ -35,11 +39,22 @@ const EditTaskModal = ({
       ...task,
       title: title.trim(),
       description: description.trim(),
+      difficulty, // Send the updated difficulty
       completed: task?.completed || false,
     };
 
+    // Call onSave to propagate the updated task
     onSave(updatedTask);
   };
+
+  // Difficulty options
+  const difficultyOptions = [
+    { value: 1, label: 'Очень легко' },
+    { value: 2, label: 'Легко' },
+    { value: 3, label: 'Средне' },
+    { value: 4, label: 'Сложно' },
+    { value: 5, label: 'Очень сложно' },
+  ];
 
   return (
     <Modal
@@ -77,6 +92,22 @@ const EditTaskModal = ({
             placeholder="Описание задачи"
             placeholderTextColor="#666"
           />
+
+          <Text style={styles.label}>Сложность:</Text>
+          <View style={styles.difficultyContainer}>
+            {difficultyOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.difficultyButton,
+                  difficulty === option.value && styles.selectedDifficulty
+                ]}
+                onPress={() => setDifficulty(option.value)}
+              >
+                <Text style={styles.difficultyButtonText}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           <View style={styles.buttonRow}>
             <TouchableOpacity
@@ -171,6 +202,30 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#FFFFFF",
     fontWeight: "600",
+    fontSize: 14,
+  },
+  difficultyContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+    gap: 8,
+  },
+  difficultyButton: {
+    flex: 1,
+    minWidth: '30%',
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#1E3A8A',
+    alignItems: 'center',
+  },
+  selectedDifficulty: {
+    backgroundColor: '#3B82F6',
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+  },
+  difficultyButtonText: {
+    color: '#FFFFFF',
     fontSize: 14,
   },
 });

@@ -8,6 +8,22 @@ import {
 import React, { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 
+const difficultyLabels = {
+  1: 'Очень легко',
+  2: 'Легко',
+  3: 'Средне',
+  4: 'Сложно',
+  5: 'Очень сложно',
+};
+
+const difficultyColors = {
+  1: '#4ADE80',
+  2: '#22D3EE',
+  3: '#60A5FA',
+  4: '#F59E0B',
+  5: '#F87171',
+};
+
 const TaskInfo = ({
   title,
   description,
@@ -17,6 +33,7 @@ const TaskInfo = ({
   onCancel,
   gold = 0,
   xp = 0,
+  difficulty = 3,
 }) => {
   const [isCompact, setIsCompact] = useState(
     Dimensions.get("window").width < 764
@@ -56,6 +73,18 @@ const TaskInfo = ({
                 {description}
               </Text>
             )}
+            <View style={styles.difficultyContainer}>
+              <View
+                style={[
+                  styles.difficultyBadge,
+                  { backgroundColor: difficultyColors[difficulty] },
+                ]}
+              >
+                <Text style={[styles.difficultyText, { color: 'white' }]}>
+                  {difficultyLabels[difficulty]}
+                </Text>
+              </View>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -123,7 +152,6 @@ const TaskInfo = ({
 
       </View>
     </View>
-
   );
 };
 
@@ -166,6 +194,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#E0F2FE",
     opacity: 0.8,
+  },
+  difficultyContainer: {
+    marginTop: 12,
+    alignItems: "flex-start",
+  },
+  difficultyBadge: {
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  difficultyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: 'center',
   },
   buttonContainer: {
     marginTop: 10,

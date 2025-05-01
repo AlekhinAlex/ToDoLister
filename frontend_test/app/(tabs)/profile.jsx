@@ -23,8 +23,10 @@ import { router } from "expo-router";
 import Toast from "react-native-toast-message";
 import * as ImagePicker from "expo-image-picker";
 import InventoryItem from "../compnents/inventoryItem";
+import { uploadAvatar } from "./lib/api";
 
 const API_BASE = "http://127.0.0.1:8000";
+
 
 const ProfileScreen = () => {
   const { width: screenWidth } = useWindowDimensions();
@@ -198,6 +200,18 @@ const ProfileScreen = () => {
     }
   };
 
+  const dataUrlToFile = (dataUrl, filename) => {
+    const arr = dataUrl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  };
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -212,13 +226,15 @@ const ProfileScreen = () => {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
-      base64: true,
+      base64: true, // Важно: Веб всегда возвращает base64, поэтому нужно явно получить его
     });
 
     if (result.canceled) return;
 
     const base64Uri = result.assets[0].uri;
     const file = dataUrlToFile(base64Uri, 'avatar.png');
+
+    console.log("Подготовленный файл:", file);
 
     try {
       const token = await getToken();

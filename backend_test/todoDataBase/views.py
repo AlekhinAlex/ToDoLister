@@ -173,7 +173,6 @@ class ShopViewSet(viewsets.ModelViewSet):
         return Response({"detail": "Предмет успешно куплен."}, status=200)
 
 
-
 class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
@@ -183,7 +182,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Task.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        # Automatically set the user and calculate rewards
+        task = serializer.save(user=self.request.user)
 
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
@@ -198,6 +198,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
             return Response({
                 'status': 'Task completed.',
+                'difficulty': task.get_difficulty_display(),
                 'reward_xp': task.reward_xp,
                 'reward_gold': task.reward_gold,
                 'user': UserSerializer(user).data,
@@ -258,21 +259,25 @@ class UserViewSet(viewsets.ViewSet):
         detail=False,
         methods=['post'],
         permission_classes=[IsAuthenticated],
-        parser_classes=[MultiPartParser, FormParser]
+        parser_classes=[MultiPartParser, FormParser]  # Убедитесь, что парсеры правильно настроены
     )
     def upload_avatar(self, request):
         user = request.user
         avatar = request.FILES.get('avatar')
 
-        if avatar:
-            user.avatar = avatar
-            user.save()
-            return Response({
-                "detail": "Avatar updated successfully!",
-                "avatar_url": request.build_absolute_uri(user.avatar.url)
-            })
+        if not avatar:
+            print("No avatar uploaded")  # Логирование ошибки
+            return Response({"error": "No avatar provided"}, status=400)
 
-        return Response({"error": "No avatar provided"}, status=400)
+        print(f"Uploaded avatar: {avatar.name}")  # Логирование имени файла
+
+        # Продолжить обработку загрузки
+        user.avatar = avatar
+        user.save()
+        return Response({
+            "detail": "Avatar updated successfully!",
+            "avatar_url": request.build_absolute_uri(user.avatar.url)
+        })
 
 
 class LogoutViewSet(viewsets.ViewSet):

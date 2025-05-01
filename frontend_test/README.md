@@ -1,6 +1,6 @@
 # ToDoLister - A Gamified Task Management Web App
 
-ToDoLister is a modern, gamified task management web application built with React.js that helps users stay organized while making task completion rewarding and engaging. The app features a unique reward system where users earn gold and XP for completing tasks, which can be used to customize their in-game character.
+ToDoLister is a modern, gamified task management application built with React Native and Expo that helps users stay organized while making task completion rewarding and engaging. The app features a unique reward system where users earn gold and XP for completing tasks, which can be used to customize their in-game character.
 
 ## Features
 
@@ -15,11 +15,11 @@ ToDoLister is a modern, gamified task management web application built with Reac
 ## Tech Stack
 
 **Frontend:**
-- React.js
-- React Router
-- Axios for API calls
-- CSS Modules
-- Vite build tool
+- React Native
+- Expo
+- React Navigation
+- AsyncStorage
+- Expo Router
 
 **Backend:**
 - Django REST Framework
@@ -28,78 +28,71 @@ ToDoLister is a modern, gamified task management web application built with Reac
 
 ## Repository Structure
 
-
-todolist/
-├── frontend/                  # React application
-│   ├── public/                # Static files
-│   ├── src/
-│   │   ├── assets/            # Images, fonts, etc.
-│   │   ├── auth/              # Auth components
-│   │   ├── components/        # Reusable UI components
-│   │   ├── features/          # Feature modules
-│   │   ├── hooks/             # Custom hooks
-│   │   ├── lib/               # Utilities and API config
-│   │   ├── App.jsx            # Root component
-│   │   └── main.jsx           # Application entry
-├── backend/                   # Django backend
-│   ├── todolist/              # Django project
-│   └── api/                   # REST API
-└── README.md                  # Project documentation
-
+```
+frontend_test/
+├── app/                      # Main application code
+│   ├── (auth)/              # Authentication screens
+│   ├── (tabs)/              # Main app tabs
+│   │   ├── hooks/           # Custom hooks
+│   │   └── lib/             # Utilities and API config
+│   ├── components/          # Reusable UI components
+│   └── index.jsx            # Entry point
+├── app.json                 # Expo configuration
+└── package.json            # Project dependencies
+```
 
 ## Installation
 
 1. **Clone the repository**
-
+```bash
 git clone https://github.com/yourusername/todolister.git
 cd todolister
+```
 
-
-2. **Set up backend**
-
-cd backend
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# OR
-venv\Scripts\activate    # Windows
-
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
-
-
-3. **Set up frontend**
-
-cd ../frontend
+2. **Install dependencies**
+```bash
 npm install
-npm run dev
+```
 
+3. **Start the development server**
+```bash
+npm start
+```
 
-4. **Access the application**
-Open your browser and navigate to:
+4. **Run on your preferred platform**
+```bash
+# For web
+npm run web
 
-http://localhost:3000
+# For iOS
+npm run ios
 
+# For Android
+npm run android
+```
 
 ## Configuration
 
-Create a `.env` file in the frontend directory:
+The application configuration is managed through `app.json`:
 
-VITE_API_BASE_URL=http://localhost:8000
-VITE_APP_NAME=ToDoLister
-
+```json
+{
+  "expo": {
+    "name": "ToDoLister",
+    "slug": "todo",
+    "version": "1.0.0"
+  }
+}
+```
 
 ## Available Scripts
 
-**Frontend:**
-- `npm run dev` - Start development server
-- `npm run build` - Create production build
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-
-**Backend:**
-- `python manage.py runserver` - Start development server
-- `python manage.py test` - Run tests
+- `npm start` - Start Expo development server
+- `npm run android` - Run on Android
+- `npm run ios` - Run on iOS
+- `npm run web` - Run in web browser
+- `npm run build:web` - Build for web deployment
+- `npm run deploy` - Deploy to GitHub Pages
 
 ## API Documentation
 

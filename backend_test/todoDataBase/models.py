@@ -16,18 +16,43 @@ class User(AbstractUser):
 
     class Meta:
         db_table = 'auth_user'
-        
+
 
 class Task(models.Model):
+    DIFFICULTY_CHOICES = [
+        (1, 'Very Easy'),
+        (2, 'Easy'),
+        (3, 'Medium'),
+        (4, 'Hard'),
+        (5, 'Very Hard'),
+    ]
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tasks')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     is_completed = models.BooleanField(default=False)
     due_date = models.DateTimeField(null=True, blank=True)
-    reward_xp = models.PositiveIntegerField(default=10)
-    reward_gold = models.PositiveIntegerField(default=5)
+    difficulty = models.PositiveSmallIntegerField(choices=DIFFICULTY_CHOICES, default=3)  # Default to Medium
+    base_reward_xp = models.PositiveIntegerField(default=5)  # Base XP for medium difficulty
+    base_reward_gold = models.PositiveIntegerField(default=10)  # Base gold for medium difficulty
+    reward_xp = models.PositiveIntegerField(editable=False)  # Calculated field
+    reward_gold = models.PositiveIntegerField(editable=False)  # Calculated field
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Calculate rewards based on difficulty before saving
+        difficulty_multiplier = {
+            1: 0.5,  # Very Easy - 50% of base
+            2: 0.75,  # Easy - 75% of base
+            3: 1.0,  # Medium - 100% of base
+            4: 1.5,  # Hard - 150% of base
+            5: 2.0  # Very Hard - 200% of base
+        }
+
+        self.reward_xp = int(self.base_reward_xp * difficulty_multiplier[self.difficulty])
+        self.reward_gold = int(self.base_reward_gold * difficulty_multiplier[self.difficulty])
+        super().save(*args, **kwargs)
 
 class Shop(models.Model):
     ITEM_TYPES = [
