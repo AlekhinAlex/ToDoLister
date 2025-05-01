@@ -44,15 +44,15 @@ def main():
                 name = filename.split('.')[0]  # без расширения
 
                 # --- здесь важно ---
-                is_purchased = 'default' in name  # будет True если "default" в имени
+                is_default= 'default' in name  # будет True если "default" в имени
                 # -------------------
 
                 description = f"Описание для {name}"
 
                 # Ценообразование
-                required_xp = random.choice([0, 100, 200, 300, 500])
-                price = random.choice([50, 100, 200, 400, 800])
-
+                required_xp = random.choice([0]) #  , 100, 200, 300, 500
+                price = random.choice([0]) #50, 100, 200, 400, 800])
+                is_unlocked = False
                 # Получаем путь относительно MEDIA_ROOT
                 relative_path = os.path.relpath(full_path, 'media')
                 url_path = relative_path.replace(os.sep, '/')
@@ -66,11 +66,11 @@ def main():
                     description=description,
                     required_xp=required_xp,
                     price=price,
-                    is_purchased=is_purchased,  # --- добавляем сюда ---
+                    is_default=is_default,
                     image_preview_url=preview_url,
                     image_character_url=character_url,
                 )
-                print(f"Добавлен предмет: {name}, куплено: {is_purchased}")
+                print(f"Добавлен предмет: {name}")
 
 if __name__ == '__main__':
     main()

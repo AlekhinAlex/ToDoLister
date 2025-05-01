@@ -6,7 +6,7 @@ from django.conf.urls.static import static
 from django.urls import path
 from .views import (
     RegisterViewSet, UserViewSet, TaskViewSet, CharacterViewSet,
-    CustomTokenObtainPairView, LogoutViewSet
+    CustomTokenObtainPairView, LogoutViewSet, ShopViewSet
 )
 
 router = DefaultRouter()
@@ -15,6 +15,7 @@ router.register(r'tasks', TaskViewSet)
 router.register(r'user', UserViewSet, basename='user')
 router.register(r'logout', LogoutViewSet, basename='logout')
 router.register(r'character', CharacterViewSet, basename='character')
+router.register(r'shop', ShopViewSet, basename='shop')
 
 
 urlpatterns = [

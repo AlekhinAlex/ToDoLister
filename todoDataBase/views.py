@@ -5,17 +5,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework.exceptions import ValidationError, APIException
 from django.shortcuts import get_object_or_404
-
+from django.db.models import Q
 from .models import User, Task, Shop, Inventory
 from .serializers import (
     UserSerializer, RegisterSerializer, TaskSerializer,
     ItemSerializer, UserItemSerializer, CharacterSerializer,
     CustomTokenObtainPairSerializer
 )
-
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -56,39 +54,124 @@ class CharacterViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Inventory.objects.filter(user=self.request.user)
-    
+        return Inventory.objects.filter(user=self.request.user, is_purchased=True)
+
     @action(detail=False, methods=['get'], url_path='get-character')
     def get_character(self, request):
         try:
-            serializer = CharacterSerializer(request.user)
+            user = request.user
+            print(f"User: {user.email}")
+            print(f"Inventory items: {user.inventory.all().count()}")
+
+            # Проверка данных перед сериализацией
+            for item in user.inventory.all():
+                print(f"Inventory item {item.id}: item={item.item.id}, equipped={item.is_equipped}")
+
+            serializer = CharacterSerializer(user)
             return Response(serializer.data)
 
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        except APIException as e:
-            return Response({"error": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
         except Exception as e:
-            return Response({"error": f"Unexpected error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-    @action(detail=False, methods=['get'], url_path='change-item')
+            print(f"Error in get_character: {str(e)}")
+            return Response({"error": str(e)}, status=500)
+
+    @action(detail=False, methods=['post'], url_path='change-item')
     def change_item(self, request):
         user = request.user
         inventory_item_id = request.data.get('inventory_item_id')
 
         if not inventory_item_id:
-            return Response({'error': 'inventory_item_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        inventory_item = get_object_or_404(Inventory, id=inventory_item_id, user=user)
-        item_type = inventory_item.item.type
-        
-        Inventory.objects.filter(user=user, item__type=item_type, is_equipped=True).update(is_equipped=False)
-        inventory_item.is_equipped = True
-        inventory_item.save()
+            return Response({'error': 'inventory_item_id is required'}, status=400)
 
-        return Response({'status': 'item changed', 'equipped_item': UserItemSerializer(inventory_item).data})
+        try:
+            inventory_item = Inventory.objects.get(id=inventory_item_id, user=user)
+
+            if not (inventory_item.is_unlocked and inventory_item.is_purchased):
+                return Response(
+                    {'error': 'Item is not unlocked or purchased'},
+                    status=400
+                )
+
+            item_type = inventory_item.item.type
+
+            # Снимаем все экипированные предметы того же типа
+            # Для hair/headwear обрабатываем как одну группу
+            if item_type in ['hair', 'headwear']:
+                Inventory.objects.filter(
+                    user=user,
+                    is_equipped=True
+                ).filter(
+                    Q(item__type='hair') | Q(item__type='headwear')
+                ).update(is_equipped=False)
+            else:
+                # Для других типов (top, bottom, boots) снимаем только предметы того же типа
+                Inventory.objects.filter(
+                    user=user,
+                    is_equipped=True,
+                    item__type=item_type
+                ).update(is_equipped=False)
+
+            # Надеваем выбранный предмет
+            inventory_item.is_equipped = True
+            inventory_item.save()
+
+            serializer = CharacterSerializer(user)
+            return Response({
+                'status': 'item changed',
+                'character': serializer.data
+            })
+
+        except Inventory.DoesNotExist:
+            return Response({'error': 'Item not found in inventory'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+
+
+class ShopViewSet(viewsets.ModelViewSet):
+    queryset = Shop.objects.all()
+    serializer_class = ItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=True, methods=['post'], url_path='unlock')
+    def unlock(self, request, pk=None):
+        user = request.user
+        item = get_object_or_404(Shop, pk=pk)
+
+        if Inventory.objects.filter(user=user, item=item).exists():
+            return Response({"detail": "Уже разблокировано"}, status=400)
+
+        if user.xp < item.required_xp:
+            return Response({"detail": "Недостаточно XP"}, status=400)
+
+        user.xp -= item.required_xp
+        user.save()
+
+        Inventory.objects.create(user=user, item=item, is_unlocked=True, is_purchased=False)
+        return Response({"detail": "Успешно разблокировано"})
+
+    @action(detail=True, methods=['post'], url_path='purchase')
+    def purchase(self, request, pk=None):
+        user = request.user
+        item = self.get_object()
+
+        inventory_item = Inventory.objects.filter(user=user, item=item).first()
+        if inventory_item and inventory_item.is_purchased:
+            return Response({"detail": "Предмет уже куплен."}, status=400)
+
+        if user.gold < item.price:
+            return Response({"detail": "Недостаточно золота для покупки."}, status=400)
+
+        user.gold -= item.price
+        user.save()
+
+        if inventory_item:
+            inventory_item.is_purchased = True
+            inventory_item.save()
+        else:
+            Inventory.objects.create(user=user, item=item, is_unlocked=True, is_purchased=True)
+
+        return Response({"detail": "Предмет успешно куплен."}, status=200)
+
 
 
 class TaskViewSet(viewsets.ModelViewSet):
