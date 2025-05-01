@@ -10,8 +10,7 @@ import {
 import {
   Text,
   Button,
-  Dialog,
-  Portal,
+  Modal,
   ActivityIndicator,
   useTheme,
   Provider as PaperProvider,
@@ -23,7 +22,7 @@ import { router } from "expo-router";
 import Toast from "react-native-toast-message";
 import * as ImagePicker from "expo-image-picker";
 import InventoryItem from "../compnents/inventoryItem";
-import { uploadAvatar } from "./lib/api";
+
 
 const API_BASE = "http://127.0.0.1:8000";
 
@@ -365,22 +364,42 @@ const ProfileScreen = () => {
           </View>
         </ScrollView>
 
-        <Portal>
-          <Dialog
-            visible={visible}
-            onDismiss={hideDialog}
-            style={styles.dialog}
-          >
-            <Dialog.Title>Выход</Dialog.Title>
-            <Dialog.Content>
-              <Text>Вы уверены, что хотите выйти?</Text>
-            </Dialog.Content>
-            <Dialog.Actions>
-              <Button onPress={hideDialog}>Отмена</Button>
-              <Button onPress={handleLogout}>Выйти</Button>
-            </Dialog.Actions>
-          </Dialog>
-        </Portal>
+        <Modal transparent visible={visible} animationType="fade">
+          <View style={dialogStyles.overlay}>
+            <View style={dialogStyles.modal}>
+              <Text style={dialogStyles.title}>Выход</Text>
+
+              <Text style={dialogStyles.subtitle}>
+                Вы уверены, что хотите выйти из аккаунта?
+              </Text>
+
+              <View style={dialogStyles.penaltyContainer}>
+                <Text style={dialogStyles.penaltyText}>
+                  Для повторного входа потребуется ввести email и пароль.
+                </Text>
+              </View>
+
+              <View style={dialogStyles.buttons}>
+                <TouchableOpacity
+                  onPress={hideDialog}
+                  style={dialogStyles.cancelButton}
+                >
+                  <Text style={dialogStyles.cancelText}>Отмена</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleLogout}>
+                  <LinearGradient
+                    colors={['#ff6b6b', '#ff4d4d']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={dialogStyles.confirmButton}
+                  >
+                    <Text style={dialogStyles.confirmText}>Выйти</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </LinearGradient>
     </PaperProvider>
   );
@@ -504,6 +523,88 @@ const styles = StyleSheet.create({
     width: "80%",
     backgroundColor: "#fff",
     borderRadius: 15,
+  },
+});
+
+const dialogStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modal: {
+    width: "100%",
+    maxWidth: 340,
+    padding: 25,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 10,
+    color: "#333",
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 25,
+  },
+  penaltyContainer: {
+    marginBottom: 20,
+    backgroundColor: "#FFF4F4",
+    borderRadius: 12,
+    padding: 20,
+    alignItems: "center",
+    marginBottom: 25,
+    width: "100%",
+  },
+  penaltyText: {
+    fontSize: 16,
+    color: "#F87171",
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  buttons: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+    justifyContent: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#f0f0f0",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    minWidth: 100,
+    alignItems: "center",
+  },
+  cancelText: {
+    color: "#333",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  confirmButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    minWidth: 100,
+    alignItems: "center",
+  },
+  confirmText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
   },
 });
 
