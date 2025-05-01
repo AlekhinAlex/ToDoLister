@@ -10,6 +10,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter, usePathname, Slot, Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import Toast from "react-native-toast-message";
 
 const TabsLayout = () => {
   const [isSmallScreen, setIsSmallScreen] = useState(
@@ -34,76 +35,82 @@ const TabsLayout = () => {
 
   if (isSmallScreen) {
     return (
-      <Tabs
-        screenOptions={{
-          tabBarStyle: styles.mobileMenu,
-          tabBarActiveTintColor: "white",
-          tabBarInactiveTintColor: "#C084FC",
-          tabBarLabelStyle: { fontWeight: "700", fontSize: 14 },
-          tabBarItemStyle: { borderRadius: 25 },
-          tabBarBackground: () => (
-            <LinearGradient
-              colors={["#3a0ca3", "#7209b7"]}
-              start={{ x: 0, y: 1 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradient}
+      <>
+        <Tabs
+          screenOptions={{
+            tabBarStyle: styles.mobileMenu,
+            tabBarActiveTintColor: "white",
+            tabBarInactiveTintColor: "#C084FC",
+            tabBarLabelStyle: { fontWeight: "700", fontSize: 14 },
+            tabBarItemStyle: { borderRadius: 25 },
+            tabBarBackground: () => (
+              <LinearGradient
+                colors={["#3a0ca3", "#7209b7"]}
+                start={{ x: 0, y: 1 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradient}
+              />
+            ),
+            headerShown: false,
+          }}
+        >
+          {tabs.map((tab) => (
+            <Tabs.Screen
+              key={tab.name}
+              name={tab.name}
+              options={{
+                title: tab.label,
+                headerShown: false,
+                tabBarIcon: ({ focused }) => (
+                  <Ionicons
+                    name={focused ? tab.icon : `${tab.icon}-outline`}
+                    size={24}
+                    color={focused ? "white" : "#C084FC"}
+                  />
+                ),
+              }}
             />
-          ),
-          headerShown: false,
-        }}
-      >
-        {tabs.map((tab) => (
-          <Tabs.Screen
-            key={tab.name}
-            name={tab.name}
-            options={{
-              title: tab.label,
-              headerShown: false,
-              tabBarIcon: ({ focused }) => (
-                <Ionicons
-                  name={focused ? tab.icon : `${tab.icon}-outline`}
-                  size={24}
-                  color={focused ? "white" : "#C084FC"}
-                />
-              ),
-            }}
-          />
-        ))}
-      </Tabs>
+          ))}
+        </Tabs>
+        <Toast />
+      </>
     );
   }
 
   // Десктоп-режим
   return (
-    <View style={{ flex: 1, backgroundColor: "#1e1e2e" }}>
-      <View style={styles.desktopTabs}>
-        {tabs.map((tab) => {
-          const isActive = pathname.includes(tab.name);
-          return (
-            <TouchableOpacity
-              key={tab.name}
-              onPress={() => router.push(`/(tabs)/${tab.name}`)}
-              activeOpacity={0.9}
-              style={[
-                styles.desktopTabWrapper,
-                isActive && styles.activeTabWrapper,
-                Platform.OS === "web" && styles.webHoverable,
-              ]}
-            >
-              <View style={[styles.desktopTab, isActive && styles.activeTab]}>
-                <Ionicons name={tab.icon} size={22} color="white" />
-                <Text style={styles.desktopTabText}>{tab.label}</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+    <>
+      <View style={{ flex: 1, backgroundColor: "#1e1e2e" }}>
+        <View style={styles.desktopTabs}>
+          {tabs.map((tab) => {
+            const isActive = pathname.includes(tab.name);
+            return (
+              <TouchableOpacity
+                key={tab.name}
+                onPress={() => router.push(`/(tabs)/${tab.name}`)}
+                activeOpacity={0.9}
+                style={[
+                  styles.desktopTabWrapper,
+                  isActive && styles.activeTabWrapper,
+                  Platform.OS === "web" && styles.webHoverable,
+                ]}
+              >
+                <View style={[styles.desktopTab, isActive && styles.activeTab]}>
+                  <Ionicons name={tab.icon} size={22} color="white" />
+                  <Text style={styles.desktopTabText}>{tab.label}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-      {/* Активный экран */}
-      <View style={{ flex: 1 }}>
-        <Slot />
+        {/* Активный экран */}
+        <View style={{ flex: 1 }}>
+          <Slot />
+        </View>
       </View>
-    </View>
+      <Toast />
+    </>
   );
 };
 

@@ -139,14 +139,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
-    backdropFilter: "blur(10px)", // Только для Web
+    backdropFilter: "blur(10px)",
     borderColor: "rgba(255,255,255,0.2)",
     borderWidth: 1,
+    transition: ".3s",
   },
   completedCard: {
-    //opacity: 0.7,
-    borderLeftWidth: 8,
+    borderLeftWidth: 9,
     borderLeftColor: "#34D399",
+    transition: ".3s",
   },
   completedText: {
     textDecorationLine: "line-through",
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   taskTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "600",
     color: "#00FFFF",
     marginBottom: 5,
@@ -215,7 +216,7 @@ const styles = StyleSheet.create({
 
   webContainer: {
     display: "flex",
-    width: 250,
+    width: 320,
     minHeight: 150,
     marginRight: 15,
   },

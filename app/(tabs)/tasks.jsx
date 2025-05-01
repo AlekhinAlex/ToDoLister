@@ -9,13 +9,12 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import TaskInfo from "../compnents/taskInfo";  // Предположим, что это компонент для отображения задач
-import EditTaskModal from "../compnents/editTaskModal";  // Предположим, что это компонент для редактирования задач
-import { isTokenExpired, refreshAccessToken } from "./lib/authTokenManager";  // Функции для проверки и обновления токенов
-import { getToken, setToken } from "./lib/storage";  // Функции для работы с токенами
-import { createTask, updateTask } from "./lib/api";  // Функции для отправки задач на сервер
-import { Alert } from "react-native"; // Добавь импорт
-import ConfirmDeleteModal from "../compnents/confirmDeleteModal";  // путь проверь
+import TaskInfo from "../compnents/taskInfo";
+import EditTaskModal from "../compnents/editTaskModal";
+import { isTokenExpired, refreshAccessToken } from "./lib/authTokenManager";
+import { getToken, setToken } from "./lib/storage";
+import { createTask, updateTask } from "./lib/api";
+import ConfirmDeleteModal from "../compnents/confirmDeleteModal";
 
 
 const API_BASE = "http://127.0.0.1:8000";  // Базовый URL API
@@ -87,9 +86,8 @@ const Tasks = () => {
       const tasksData = await tasksResponse.json();
       setTasks(tasksData);
 
-      // Character fetch logic with better error handling
       try {
-        const characterResponse = await fetch(`${API_BASE}/api/character/me/`, {
+        const characterResponse = await fetch(`${API_BASE}/api/user/me/`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -98,25 +96,6 @@ const Tasks = () => {
         });
 
         if (characterResponse.status === 404) {
-          // Character doesn't exist, create one
-          const createResponse = await fetch(`${API_BASE}/api/character/`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              name: `Hero_${Date.now()}`,
-              level: 1,
-              gold: 0,
-              xp: 0
-            }),
-          });
-
-          if (!createResponse.ok) {
-            throw new Error("Failed to create character");
-          }
-
           const newCharacter = await createResponse.json();
           setBalance(newCharacter.gold || 0);
           setXp(newCharacter.xp || 0);
@@ -284,7 +263,7 @@ const Tasks = () => {
         <View style={styles.container}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
-              <Ionicons name="checkmark-done-circle" size={40} color="#fff" />
+              <Ionicons name="checkmark-done-circle" size={50} color="#fff" />
               <Text style={styles.title}>Мои Задачи</Text>
             </View>
 
@@ -385,11 +364,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 15,
   },
-  title: {
-    fontSize: 30,
-    fontWeight: "bold",
-    color: "#c3dafe",
-  },
   balanceContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -427,7 +401,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 6,
   },
-
   createButtonWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -447,7 +420,6 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   tasksOuterWrapper: {
-
     alignSelf: "center",
   },
   titleRow: {

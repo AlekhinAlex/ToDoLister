@@ -1,7 +1,7 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# Dependencies
 node_modules/
+.pnp
+.pnp.js
 
 # Expo
 .expo/
@@ -16,22 +16,84 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.keystore
+*.apk
+*.aab
+*.ipa
 
 # Metro
 .metro-health-check*
+.metro-cache/
 
-# debug
+# Debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+debug.log
+*.log
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IDE - WebStorm/IntelliJ
+.idea/
+*.iml
 
 # macOS
 .DS_Store
 *.pem
+.AppleDouble
+.LSOverride
+._*
 
-# local env files
-.env*.local
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 .qodo
+
+# Testing
+/coverage
+__tests__/coverage/
+
+# Production
+/build
+/dist
+
+# Temporary files
+*.swp
+*.swo
+*.tmp
+*.temp
+
+# Cache
+.cache/
+.eslintcache
+
+# Misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Bundle artifact
+*.jsbundle
+
+# CocoaPods
+/ios/Pods/
