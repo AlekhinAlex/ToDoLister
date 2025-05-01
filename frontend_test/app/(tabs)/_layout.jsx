@@ -128,6 +128,7 @@ const styles = StyleSheet.create({
     right: 10,
     borderRadius: 25,
     overflow: "hidden",
+
   },
   gradient: {
     flex: 1,
@@ -150,6 +151,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   activeTabWrapper: {
+    transition: ".4s",
     transform: [{ scale: 1.1 }],
   },
   webHoverable: {

@@ -1,58 +1,90 @@
-import React from "react";
+import React, { useState } from "react";
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
-const ConfirmDeleteModal = ({ visible, onConfirm, onCancel, penaltyXp, penaltyGold, isCompleted }) => {
+const ConfirmDeleteModal = ({ 
+  visible, 
+  onConfirm, 
+  onCancel, 
+  isCompleted, 
+  penaltyXp, 
+  penaltyGold 
+}) => {
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const handleConfirm = () => {
+    setIsAnimating(true);
+    setTimeout(() => {
+      onConfirm();
+      setIsAnimating(false);
+    }, 500);
+  };
+
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="fade"
-    >
+    <Modal transparent visible={visible} animationType="fade">
       <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <Text style={styles.title}>Удалить задачу?</Text>
+        <View style={[
+          styles.modal,
+          isAnimating && { transform: [{ scale: 0.95 }], opacity: 0.8 }
+        ]}>
+          <Text style={styles.title}>
+            {isCompleted ? "Удалить задачу?" : "Отменить задачу?"}
+          </Text>
           
-          {/* Условие для текста предупреждения */}
-          {isCompleted ? (
-            <Text style={styles.subtitle}>Это действие нельзя будет отменить.</Text>
-          ) : (
-            <Text style={styles.subtitle}>Это действие приведет к штрафу.</Text>
-          )}
+          <Text style={styles.subtitle}>
+            {isCompleted ? "Это действие нельзя будет отменить." : "Это действие приведет к штрафу."}
+          </Text>
 
-          {/* Добавление предупреждения о штрафе или невозвратности */}
           <View style={styles.penaltyContainer}>
             {isCompleted ? (
               <Text style={styles.penaltyText}>
                 После удаления задачу будет невозможно восстановить.
               </Text>
             ) : (
-              <Text style={styles.penaltyText}>
-                В случае отказа ваш баланс будет уменьшен
-              </Text>
-            )}
-
-            {/* Детали штрафа для незавершенных задач */}
-            {!isCompleted && (
-              <Text style={styles.penaltyDetails}>
-                {penaltyXp > 0 && `-${penaltyXp} XP`}
-                {penaltyGold > 0 && ` -${penaltyGold} золота`}
-              </Text>
+              <>
+                <Text style={styles.penaltyText}>
+                  В случае отказа ваш баланс будет уменьшен
+                </Text>
+                <View style={styles.penaltyDetailsContainer}>
+                  {penaltyXp > 0 && (
+                    <View style={styles.penaltyItem}>
+                      <Ionicons name="school-outline" size={16} color="#EF4444" />
+                      <Text style={styles.penaltyValue}>-{penaltyXp} XP</Text>
+                    </View>
+                  )}
+                  {penaltyGold > 0 && (
+                    <View style={styles.penaltyItem}>
+                      <Ionicons name="cash-outline" size={16} color="#EF4444" />
+                      <Text style={styles.penaltyValue}>-{penaltyGold} зол.</Text>
+                    </View>
+                  )}
+                </View>
+              </>
             )}
           </View>
 
           <View style={styles.buttons}>
-            <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
+            <TouchableOpacity 
+              onPress={onCancel} 
+              style={styles.cancelButton}
+              disabled={isAnimating}
+            >
               <Text style={styles.cancelText}>Отмена</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={onConfirm}>
+            <TouchableOpacity 
+              onPress={handleConfirm}
+              disabled={isAnimating}
+            >
               <LinearGradient
                 colors={['#ff6b6b', '#ff4d4d']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.confirmButton}
               >
-                <Text style={styles.confirmText}>Удалить</Text>
+                <Text style={styles.confirmText}>
+                  {isCompleted ? "Удалить" : "Отменить"}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -82,6 +114,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
     elevation: 8,
+    transition: "all 0.3s ease",
   },
   title: {
     fontSize: 22,
@@ -99,38 +132,47 @@ const styles = StyleSheet.create({
   penaltyContainer: {
     marginBottom: 20,
     backgroundColor: "#FFF4F4",
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 12,
+    padding: 20,
     alignItems: "center",
     marginBottom: 25,
+    width: "100%",
   },
   penaltyText: {
     fontSize: 16,
     color: "#F87171",
     fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 8,
   },
-  penaltyDetails: {
-    fontSize: 16,  // Увеличили размер шрифта
-    color: "#FFFFFF",  // Сохраняем яркий красный цвет
+  penaltyDetailsContainer: {
+    flexDirection: "row",
+    gap: 16,
     marginTop: 8,
-    fontWeight: "800",  // Сделали текст более жирным
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 5,  // Увеличили радиус тени для более выраженного эффекта
-    paddingVertical: 6,  // Немного добавили отступы для лучшего восприятия
-    paddingHorizontal: 10,
-    backgroundColor: "#FB5C60",  // Светлый фон, чтобы выделить текст на экране
-    borderRadius: 10,  // Скруглили углы для более мягкого вида
   },
-
+  penaltyItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  penaltyValue: {
+    fontSize: 16,
+    color: "#EF4444",
+    fontWeight: "700",
+  },
   buttons: {
     flexDirection: "row",
     gap: 12,
+    width: "100%",
+    justifyContent: "center",
   },
   cancelButton: {
     backgroundColor: "#f0f0f0",
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
+    minWidth: 100,
+    alignItems: "center",
   },
   cancelText: {
     color: "#333",
@@ -141,6 +183,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
+    minWidth: 100,
+    alignItems: "center",
   },
   confirmText: {
     color: "#fff",

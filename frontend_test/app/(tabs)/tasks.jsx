@@ -5,18 +5,53 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Modal,
   Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import TaskInfo from "../compnents/taskInfo";
 import EditTaskModal from "../compnents/editTaskModal";
+import ConfirmDeleteModal from "../compnents/confirmDeleteModal";
 import { isTokenExpired, refreshAccessToken } from "./lib/authTokenManager";
 import { getToken, setToken } from "./lib/storage";
 import { createTask, updateTask } from "./lib/api";
-import ConfirmDeleteModal from "../compnents/confirmDeleteModal";
 
-const API_BASE = "http://127.0.0.1:8000";  // Базовый URL API
+const API_BASE = "http://127.0.0.1:8000";
+
+const SortModal = ({ visible, options, selectedValue, onSelect, onClose }) => (
+  <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+    <View style={modalStyles.overlay}>
+      <View style={modalStyles.content}>
+        {options.map((option) => (
+          <TouchableOpacity
+            key={option.value}
+            style={[
+              modalStyles.option,
+              selectedValue === option.value && modalStyles.selectedOption
+            ]}
+            onPress={() => {
+              onSelect(option.value);
+              onClose();
+            }}
+          >
+            <Text
+              style={[
+                modalStyles.optionText,
+                selectedValue === option.value && modalStyles.selectedOptionText,
+              ]}
+            >
+              {option.label}
+            </Text>
+            {selectedValue === option.value && (
+              <Ionicons name="checkmark" size={16} color="#4169d1" />
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  </Modal>
+);
 
 const Tasks = () => {
   const [editingTask, setEditingTask] = useState(null);
@@ -26,9 +61,21 @@ const Tasks = () => {
   const [xp, setXp] = useState(0);
   const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
   const [taskIdToDelete, setTaskIdToDelete] = useState(null);
-  const [deletingTask, setDeletingTask] = useState(null)
-
+  const [deletingTask, setDeletingTask] = useState(null);
   const [isCompact, setIsCompact] = useState(Dimensions.get("window").width < 764);
+  const [activeTab, setActiveTab] = useState("active");
+  const [sortBy, setSortBy] = useState("default");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [deletingTasks, setDeletingTasks] = useState({});
+
+  const sortOptions = [
+    { label: "По умолчанию", value: "default" },
+    { label: "По дате (новые)", value: "date_new" },
+    { label: "По дате (старые)", value: "date_old" },
+    { label: "По сложности (легкие)", value: "difficulty_easy" },
+    { label: "По сложности (сложные)", value: "difficulty_hard" },
+    { label: "По типу", value: "type" },
+  ];
 
   useEffect(() => {
     const handleResize = ({ window }) => {
@@ -48,12 +95,8 @@ const Tasks = () => {
       const { access, refresh } = await getToken();
 
       if (isTokenExpired(access)) {
-        console.log("Access token истек, обновляем токен.");
-
         const { access: newAccess, refresh: newRefresh } = await refreshAccessToken(refresh, access);
-
         setToken({ access: newAccess, refresh: newRefresh });
-
         await getUserTasksAndBalanceWithToken(newAccess);
       } else {
         await getUserTasksAndBalanceWithToken(access);
@@ -74,38 +117,27 @@ const Tasks = () => {
       });
 
       if (!tasksResponse.ok) {
-        throw new Error(`Ошибка при получении данных задач: ${tasksResponse.statusText}`);
+        throw new Error(`Ошибка задач: ${tasksResponse.statusText}`);
       }
 
       const tasksData = await tasksResponse.json();
       setTasks(tasksData);
 
-      try {
-        const characterResponse = await fetch(`${API_BASE}/api/user/me/`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
+      const characterResponse = await fetch(`${API_BASE}/api/user/me/`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
 
-        if (characterResponse.status === 404) {
-          const newCharacter = await characterResponse.json();
-          setBalance(newCharacter.gold || 0);
-          setXp(newCharacter.xp || 0);
-        } else if (!characterResponse.ok) {
-          throw new Error(`Ошибка при получении данных героя: ${characterResponse.statusText}`);
-        } else {
-          const characterData = await characterResponse.json();
-          setBalance(characterData.gold || 0);
-          setXp(characterData.xp || 0);
-        }
-      } catch (error) {
-        console.error("Ошибка получения героя:", error.message);
+      if (characterResponse.ok) {
+        const characterData = await characterResponse.json();
+        setBalance(characterData.gold || 0);
+        setXp(characterData.xp || 0);
       }
-
     } catch (error) {
-      console.error("Ошибка получения задач:", error.message);
+      console.error("Ошибка:", error.message);
     }
   };
 
@@ -128,10 +160,8 @@ const Tasks = () => {
             Authorization: `Bearer ${access}`,
           },
         });
-
-        const { reward_xp = 0, reward_gold = 0 } = taskToUpdate;
-        setXp((prevXp) => prevXp + reward_xp);
-        setBalance((prevGold) => prevGold + reward_gold);
+        setXp((prev) => prev + (taskToUpdate.reward_xp || 0));
+        setBalance((prev) => prev + (taskToUpdate.reward_gold || 0));
       } else {
         await fetch(`${API_BASE}/api/tasks/${taskId}/uncomplete/`, {
           method: "POST",
@@ -139,19 +169,15 @@ const Tasks = () => {
             Authorization: `Bearer ${access}`,
           },
         });
-
-        const { reward_xp = 0, reward_gold = 0 } = taskToUpdate;
-        setXp((prevXp) => prevXp - reward_xp);
-        setBalance((prevGold) => prevGold - reward_gold);
+        setXp((prev) => prev - (taskToUpdate.reward_xp || 0));
+        setBalance((prev) => prev - (taskToUpdate.reward_gold || 0));
       }
 
-      const updatedTasks = tasks.map((task) =>
+      setTasks(tasks.map((task) =>
         task.id === taskId ? { ...task, is_completed: updatedStatus } : task
-      );
-      setTasks(updatedTasks);
-
+      ));
     } catch (error) {
-      console.error("Ошибка при изменении статуса задачи:", error);
+      console.error("Ошибка при изменении статуса:", error);
     }
   };
 
@@ -164,61 +190,62 @@ const Tasks = () => {
 
   const deleteTask = async () => {
     try {
-      const taskToDelete = tasks.find((task) => task.id === taskIdToDelete);
       const { access } = await getToken();
+      const task = tasks.find((t) => t.id === taskIdToDelete);
 
-      await fetch(`${API_BASE}/api/tasks/${taskIdToDelete}/delete/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${access}`,
-        },
-      });
+      // Помечаем задачу как удаляемую для анимации
+      setDeletingTasks(prev => ({ ...prev, [taskIdToDelete]: true }));
 
-      if (taskToDelete && !taskToDelete.is_completed) {
-        const xpPenalty = 2 * (taskToDelete.reward_xp || 0);
-        const goldPenalty = 2 * (taskToDelete.reward_gold || 0);
-  
-        setXp((prevXp) => Math.max(0, prevXp - xpPenalty));
-        setBalance((prevGold) => Math.max(0, prevGold - goldPenalty));
-      }
+      // Ждем завершения анимации перед фактическим удалением
+      setTimeout(async () => {
+        await fetch(`${API_BASE}/api/tasks/${taskIdToDelete}/delete/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access}`,
+          },
+        });
 
-      setTasks(tasks.filter((task) => task.id !== taskIdToDelete));
+        if (task && !task.is_completed) {
+          setXp((prev) => Math.max(0, prev - 2 * (task.reward_xp || 0)));
+          setBalance((prev) => Math.max(0, prev - 2 * (task.reward_gold || 0)));
+        }
+
+        setTasks(tasks.filter((task) => task.id !== taskIdToDelete));
+        setDeletingTasks(prev => {
+          const newState = { ...prev };
+          delete newState[taskIdToDelete];
+          return newState;
+        });
+      }, 800);
+
       setIsConfirmModalVisible(false);
       setTaskIdToDelete(null);
     } catch (error) {
       console.error("Ошибка при удалении задачи:", error);
+      setDeletingTasks(prev => {
+        const newState = { ...prev };
+        delete newState[taskIdToDelete];
+        return newState;
+      });
     }
   };
 
   const handleEdit = (taskId) => {
-    const taskToEdit = tasks.find((task) => task.id === taskId);
-    setEditingTask(taskToEdit);
+    const task = tasks.find((task) => task.id === taskId);
+    setEditingTask(task);
     setIsModalVisible(true);
   };
 
   const handleCreateNew = () => {
-    setEditingTask({
-      id: Date.now(),
-      title: "",
-      description: "",
-      completed: false,
-    });
+    setEditingTask({ id: Date.now(), title: "", description: "", completed: false });
     setIsModalVisible(true);
   };
 
   const handleSave = async (updatedTask) => {
     try {
       let token = await getToken();
-      if (!token || !token.access) {
-        throw new Error("Токен отсутствует");
-      }
-
       if (isTokenExpired(token.access)) {
-        if (!token.refresh || isTokenExpired(token.refresh)) {
-          throw new Error("Требуется повторная авторизация");
-        }
-
         const newTokens = await refreshAccessToken(token.refresh);
         token = {
           access: newTokens.access,
@@ -230,18 +257,17 @@ const Tasks = () => {
       const taskData = {
         title: updatedTask.title,
         description: updatedTask.description,
-        difficulty: updatedTask.difficulty, // добавляем сложность
+        difficulty: updatedTask.difficulty,
         type: updatedTask.type,
-        is_completed: updatedTask.completed || false
+        is_completed: updatedTask.completed || false,
       };
 
-      const existingTaskIds = tasks.map(task => task.id);
-      if (existingTaskIds.includes(editingTask.id)) {
+      if (tasks.some((t) => t.id === editingTask.id)) {
         const updated = await updateTask(editingTask.id, taskData, token.access);
-        setTasks(tasks.map(t => t.id === updated.id ? updated : t));
+        setTasks(tasks.map((t) => (t.id === updated.id ? updated : t)));
       } else {
-        const createdTask = await createTask(taskData, token.access);
-        setTasks([...tasks, createdTask]);
+        const created = await createTask(taskData, token.access);
+        setTasks([...tasks, created]);
       }
 
       setIsModalVisible(false);
@@ -250,10 +276,43 @@ const Tasks = () => {
     }
   };
 
-
   const handleCancel = () => {
     setIsModalVisible(false);
   };
+
+  const handleSortChange = (value) => {
+    setSortBy(value);
+    setIsDropdownOpen(false);
+  };
+
+  const sortTasks = (tasksToSort) => {
+    switch (sortBy) {
+      case "date_new":
+        return [...tasksToSort].sort((a, b) =>
+          new Date(b.created_at || 0) - new Date(a.created_at || 0)
+        );
+      case "date_old":
+        return [...tasksToSort].sort((a, b) =>
+          new Date(a.created_at || 0) - new Date(b.created_at || 0)
+        );
+      case "difficulty_easy":
+        return [...tasksToSort].sort((a, b) => (a.difficulty || 0) - (b.difficulty || 0));
+      case "difficulty_hard":
+        return [...tasksToSort].sort((a, b) => (b.difficulty || 0) - (a.difficulty || 0));
+      case "type":
+        return [...tasksToSort].sort((a, b) => {
+          const typeA = String(a.type || "");
+          const typeB = String(b.type || "");
+          return typeA.localeCompare(typeB);
+        });
+      default:
+        return tasksToSort;
+    }
+  };
+
+  const filteredTasks = sortTasks(tasks.filter((task) =>
+    activeTab === "active" ? !task.is_completed : task.is_completed
+  ));
 
   return (
     <LinearGradient colors={["#4169d1", "#9ba7be"]} style={styles.gradient}>
@@ -264,7 +323,6 @@ const Tasks = () => {
               <Ionicons name="checkmark-done-circle" size={50} color="#fff" />
               <Text style={styles.title}>Мои Задачи</Text>
             </View>
-
             <View style={styles.statusContainer}>
               <View style={styles.statusItem}>
                 <Ionicons name="cash-outline" size={20} color="#FFD700" />
@@ -277,23 +335,97 @@ const Tasks = () => {
             </View>
           </View>
 
-          <View style={styles.createButtonWrapper}>
-            <TouchableOpacity style={styles.createButton} onPress={handleCreateNew}>
-              <LinearGradient
-                colors={["#6a11cb", "#2575fc"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.gradientButton}
+          <View style={styles.tabContainer}>
+            <View style={styles.tabsWrapper}>
+              <View
+                style={[
+                  styles.activeTabIndicator,
+                  activeTab === "completed" && styles.activeTabIndicatorRight
+                ]}
+              />
+              <TouchableOpacity
+                onPress={() => setActiveTab("active")}
+                style={styles.tab}
               >
-                <Ionicons name="add" size={26} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-            <Text style={styles.createButtonText}>Добавить</Text>
+                <Ionicons
+                  name="list-outline"
+                  size={20}
+                  color={activeTab === "active" ? "#fff" : "rgba(255,255,255,0.7)"}
+                />
+                <Text style={[
+                  styles.tabText,
+                  activeTab === "active" && styles.activeTabText
+                ]}>
+                  Активные
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setActiveTab("completed")}
+                style={styles.tab}
+              >
+                <Ionicons
+                  name="checkmark-done-outline"
+                  size={20}
+                  color={activeTab === "completed" ? "#fff" : "rgba(255,255,255,0.7)"}
+                />
+                <Text style={[
+                  styles.tabText,
+                  activeTab === "completed" && styles.activeTabText
+                ]}>
+                  Выполненные
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {tasks.length === 0 ? (
+          {activeTab === "active" && (
+            <View style={styles.actionsRow}>
+              <View style={styles.createButtonWrapper}>
+                <TouchableOpacity style={styles.createButton} onPress={handleCreateNew}>
+                  <LinearGradient
+                    colors={["#6a11cb", "#2575fc"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.gradientButton}
+                  >
+                    <Ionicons name="add" size={26} color="#fff" />
+                  </LinearGradient>
+                </TouchableOpacity>
+                <Text style={styles.createButtonText}>Добавить</Text>
+              </View>
+
+              <View style={styles.sortContainer}>
+                <TouchableOpacity
+                  style={styles.sortButton}
+                  onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+                >
+                  <Ionicons name="filter" size={20} color="#fff" />
+                  <Text style={styles.sortButtonText}>Сортировка</Text>
+                  <Ionicons
+                    name={isDropdownOpen ? "chevron-up" : "chevron-down"}
+                    size={16}
+                    color="#fff"
+                  />
+                </TouchableOpacity>
+                {isDropdownOpen && (
+                  <View style={{ marginTop: 5, maxWidth: isCompact ? '100%' : 300 }}>
+                    <SortModal
+                      visible={isDropdownOpen}
+                      options={sortOptions}
+                      selectedValue={sortBy}
+                      onSelect={handleSortChange}
+                      onClose={() => setIsDropdownOpen(false)}
+                    />
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {filteredTasks.length === 0 ? (
             <View style={styles.noTasksContainer}>
-              <Text style={styles.noTasksText}>Задач пока нет</Text>
+              <Text style={styles.noTasksText}>Нет задач в этой категории</Text>
             </View>
           ) : (
             <View style={styles.tasksOuterWrapper}>
@@ -303,7 +435,7 @@ const Tasks = () => {
                   { flexDirection: isCompact ? "column" : "row" },
                 ]}
               >
-                {tasks.map((task) => (
+                {filteredTasks.map((task) => (
                   <TaskInfo
                     key={task.id}
                     title={task.title}
@@ -317,6 +449,7 @@ const Tasks = () => {
                     gold={task.reward_gold || 0}
                     xp={task.reward_xp || 0}
                     isCompact={isCompact}
+                    isDeleting={deletingTasks[task.id]}
                   />
                 ))}
               </View>
@@ -331,14 +464,13 @@ const Tasks = () => {
             isCompact={isCompact}
           />
 
-
           <ConfirmDeleteModal
             visible={isConfirmModalVisible}
             onConfirm={deleteTask}
             onCancel={() => setIsConfirmModalVisible(false)}
-            isCompleted={deletingTask ? deletingTask.is_completed : false} // Добавлена проверка
-            penaltyXp={deletingTask ? 2 * deletingTask.reward_xp : 0}  // Добавлена проверка
-            penaltyGold={deletingTask ? 2 * deletingTask.reward_gold : 0}  // Добавлена проверка
+            isCompleted={deletingTask ? deletingTask.is_completed : false}
+            penaltyXp={deletingTask ? 2 * deletingTask.reward_xp : 0}
+            penaltyGold={deletingTask ? 2 * deletingTask.reward_gold : 0}
           />
         </View>
       </ScrollView>
@@ -347,12 +479,8 @@ const Tasks = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  gradient: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  gradient: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     minHeight: "100%",
@@ -379,11 +507,16 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
+  actionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 25,
+  },
   createButtonWrapper: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 25,
   },
   createButtonText: {
     color: "#FFFFFF",
@@ -391,19 +524,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
   tasksWrapper: {
-    flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
     gap: 15,
   },
-  tasksOuterWrapper: {
-    alignSelf: "center",
-  },
-  statusContainer: {
-    alignItems: "center",
-    gap: 8,
-    marginTop: 10,
-  },
+  tasksOuterWrapper: { alignSelf: "center" },
+  statusContainer: { alignItems: "center", gap: 8, marginTop: 10 },
   statusItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -448,6 +574,107 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 25,
+  },
+  tabContainer: {
+    marginBottom: 25,
+    paddingHorizontal: 20,
+  },
+  tabsWrapper: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 12,
+    padding: 4,
+    position: "relative",
+    overflow: "hidden",
+  },
+  activeTabIndicator: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    width: "50%",
+    height: "85%",
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    borderRadius: 8,
+    transitionProperty: "left",
+    transitionDuration: "0.3s",
+    transitionTimingFunction: "ease-out",
+  },
+  activeTabIndicatorRight: {
+    left: "50%",
+  },
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    zIndex: 1,
+  },
+  tabText: {
+    color: "rgba(255,255,255,0.7)",
+    fontWeight: "600",
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  activeTabText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  sortContainer: {
+    position: "relative",
+    zIndex: 10,
+  },
+  sortButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+  },
+  sortButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  content: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    width: '80%',
+    maxWidth: 320,
+  },
+  option: {
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectedOption: {
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f0f4ff',
+  },
+  optionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  selectedOptionText: {
+    fontWeight: '600',
+    color: '#4169d1',
   },
 });
 

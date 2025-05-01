@@ -23,6 +23,7 @@ const difficultyColors = {
   4: '#F59E0B',
   5: '#F87171',
 };
+
 const taskTypeLabels = {
   1: 'Ежедневное',
   2: 'Еженедельное',
@@ -30,9 +31,9 @@ const taskTypeLabels = {
 };
 
 const taskTypeColors = {
-  1: '#5DC59C',  // Легкий мятный (для ежедневных)
-  2: '#3474DC',  // Яркий синий (для еженедельных)
-  3: '#E4A522',  // Теплый янтарный (для постоянных)
+  1: '#5DC59C',
+  2: '#3474DC',
+  3: '#E4A522',
 };
 
 const TaskInfo = ({
@@ -45,11 +46,12 @@ const TaskInfo = ({
   gold = 0,
   xp = 0,
   difficulty = 3,
-  type = 1,  // Добавим тип задания
+  type = 1,
+  isDeleting = false,
 }) => {
-  const [isCompact, setIsCompact] = useState(
-    Dimensions.get("window").width < 764
-  );
+  const [isCompact, setIsCompact] = useState(Dimensions.get("window").width < 764);
+  const [animationType, setAnimationType] = useState(null);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     const handleResize = ({ window }) => {
@@ -60,50 +62,88 @@ const TaskInfo = ({
     return () => subscription?.remove();
   }, []);
 
+  useEffect(() => {
+    if (isDeleting) {
+      setAnimationType(completed ? 'delete' : 'cancel');
+      setTimeout(() => {
+        setIsVisible(false);
+      }, 800);
+    }
+  }, [isDeleting, completed]);
+
+  const handleComplete = () => {
+    if (completed) {
+      setAnimationType('restore');
+      setTimeout(() => {
+        onComplete();
+        setAnimationType(null);
+      }, 800);
+      return;
+    }
+
+    setAnimationType('complete');
+    setTimeout(() => {
+      setIsVisible(false);
+      onComplete();
+    }, 800);
+  };
+
+  if (!isVisible) return null;
+
   return (
     <View
       style={[
         styles.taskCard,
         completed && styles.completedCard,
         !isCompact && styles.webContainer,
+        animationType === 'complete' && styles.completeAnimation,
+        animationType === 'restore' && styles.restoreAnimation,
+        animationType === 'cancel' && styles.cancelAnimation,
+        animationType === 'delete' && styles.deleteAnimation,
       ]}
     >
-      <View style={[!isCompact && styles.webContent]}>
+      {animationType === 'complete' && (
+        <View style={styles.animationOverlay}>
+          <Ionicons name="checkmark-circle" size={100} color="#34D399" style={styles.animationIcon} />
+        </View>
+      )}
 
+      {animationType === 'restore' && (
+        <View style={styles.animationOverlay}>
+          <Ionicons name="refresh-circle" size={100} color="#3B82F6" style={styles.animationIcon} />
+        </View>
+      )}
+
+      {animationType === 'cancel' && (
+        <View style={styles.animationOverlay}>
+          <Ionicons name="close-circle" size={100} color="#F59E0B" style={styles.animationIcon} />
+        </View>
+      )}
+
+      {animationType === 'delete' && (
+        <View style={styles.animationOverlay}>
+          <Ionicons name="trash-bin" size={100} color="#EF4444" style={styles.animationIcon} />
+        </View>
+      )}
+
+      <View style={[!isCompact && styles.webContent, animationType && { opacity: 0.3 }]}>
         <View style={{ opacity: completed ? 0.6 : 1 }}>
           <View style={styles.textContainer}>
             <Text style={[styles.taskTitle, completed && styles.completedText]}>
               {title}
             </Text>
             {description && (
-              <Text
-                style={[
-                  styles.taskDescription,
-                  completed && styles.completedText,
-                ]}
-              >
+              <Text style={[styles.taskDescription, completed && styles.completedText]}>
                 {description}
               </Text>
             )}
             <View style={styles.difficultyContainer}>
-              <View
-                style={[
-                  styles.difficultyBadge,
-                  { backgroundColor: difficultyColors[difficulty] },
-                ]}
-              >
+              <View style={[styles.difficultyBadge, { backgroundColor: difficultyColors[difficulty] }]}>
                 <Text style={[styles.difficultyText, { color: 'white' }]}>
                   {difficultyLabels[difficulty]}
                 </Text>
               </View>
-              {/* Новый элемент для отображения типа задания */}
-              <View
-                style={[
-                  styles.difficultyBadge,
-                  { backgroundColor: taskTypeColors[type] },
-                  styles.typeBadge,
-                ]}
-              >
+              <View style={[styles.difficultyBadge, { backgroundColor: taskTypeColors[type] }, styles.typeBadge]}>
                 <Text style={[styles.difficultyText, { color: 'white' }]}>
                   {taskTypeLabels[type]}
                 </Text>
@@ -114,6 +154,7 @@ const TaskInfo = ({
           <TouchableOpacity
             style={[styles.button, styles.editButton]}
             onPress={onEdit}
+            disabled={!!animationType}
           >
             <View style={styles.buttonContent}>
               <Ionicons name="create-outline" size={18} color="white" />
@@ -122,28 +163,28 @@ const TaskInfo = ({
           </TouchableOpacity>
         </View>
 
-        <View
-          style={[styles.actionButtons, !isCompact && styles.webActionButtons]}
-        >
+        <View style={[styles.actionButtons, !isCompact && styles.webActionButtons]}>
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
             onPress={onCancel}
+            disabled={!!animationType}
           >
             <View style={styles.buttonContent}>
               <Ionicons
-                name={completed ? "arrow-undo-outline" : "close-outline"}
+                name={completed ? "trash-outline" : "close-outline"}
                 size={18}
                 color="white"
               />
               <Text style={styles.buttonText}>
-                {completed ? "Убрать" : "Отказаться"}
+                {completed ? "Удалить" : "Отменить"}
               </Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.doneButton]}
-            onPress={onComplete}
+            onPress={handleComplete}
+            disabled={!!animationType}
           >
             {completed ? (
               <View style={styles.buttonContent}>
@@ -190,7 +231,47 @@ const styles = StyleSheet.create({
     backdropFilter: "blur(10px)",
     borderColor: "rgba(255,255,255,0.2)",
     borderWidth: 1,
-    transition: ".3s",
+    transition: "all 0.5s ease",
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  animationOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  animationIcon: {
+    opacity: 0,
+    animationKeyframes: {
+      '0%': { opacity: 0, transform: [{ scale: 0.5 }] },
+      '30%': { opacity: 1, transform: [{ scale: 1.1 }] },
+      '70%': { opacity: 1, transform: [{ scale: 1.1 }] },
+      '100%': { opacity: 0, transform: [{ scale: 1.5 }] },
+    },
+    animationDuration: '0.8s',
+    animationTimingFunction: 'ease-out',
+  },
+  completeAnimation: {
+    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+    transform: [{ scale: 0.95 }],
+  },
+  restoreAnimation: {
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    transform: [{ scale: 0.95 }],
+  },
+  cancelAnimation: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    transform: [{ scale: 0.95 }],
+  },
+  deleteAnimation: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    transform: [{ scale: 0.95 }],
   },
   completedCard: {
     borderLeftWidth: 9,
@@ -218,8 +299,8 @@ const styles = StyleSheet.create({
   difficultyContainer: {
     marginTop: 12,
     alignItems: "flex-start",
-    flexDirection: "row", // Сделаем их рядом
-    gap: 8, // Задаем отступ между ними
+    flexDirection: "colomn",
+    gap: 8,
   },
   difficultyBadge: {
     paddingVertical: 5,
@@ -230,9 +311,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     textAlign: 'center',
-  },
-  buttonContainer: {
-    marginTop: 10,
   },
   actionButtons: {
     justifyContent: "space-around",
@@ -277,7 +355,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginTop: 4,
   },
-
   webContainer: {
     display: "flex",
     width: 320,
@@ -288,11 +365,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "column",
     justifyContent: "space-between",
-  },
-  webButtonContainer: {
-    flexDirection: "column",
-    justifyContent: "flex-end",
-    flex: 1,
   },
   webActionButtons: {
     flexDirection: "column",
