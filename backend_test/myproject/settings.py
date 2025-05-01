@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     'rest_framework', #new
     'rest_framework_simplejwt', #new
     'corsheaders', #new
-
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -123,11 +122,11 @@ DATABASES = {
 
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
 
-        'NAME':'mydb',
+        'NAME':'tododb_v1',
 
         'USER': 'todolist',
 
-        'PASSWORD': 'ADmiN123',
+        'PASSWORD': 'ADmIN123',
 
         'HOST': 'localhost',
 

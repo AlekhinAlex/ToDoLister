@@ -1,30 +1,19 @@
-from rest_framework import status
-from .models import Character, Task, Item, UserItem, Skin, UnlockedSkin, CharacterAppearance
-from .serializers import (
-    UserSerializer, RegisterSerializer, CharacterSerializer, TaskSerializer,
-    ItemSerializer, UserItemSerializer, SkinSerializer, UnlockedSkinSerializer,
-    CharacterAppearanceSerializer
-)
-from rest_framework import viewsets
+from rest_framework import status, viewsets, permissions
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import User
-from .serializers import UserSerializer
-from rest_framework.permissions import IsAuthenticated
-from rest_framework import viewsets, permissions
-from rest_framework.response import Response
-from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer
-from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
-from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer
-from rest_framework import status
-from rest_framework.response import Response
-
+from rest_framework.exceptions import ValidationError, APIException
+from django.shortcuts import get_object_or_404
+from django.db.models import Q
+from .models import User, Task, Shop, Inventory
+from .serializers import (
+    UserSerializer, RegisterSerializer, TaskSerializer,
+    ItemSerializer, UserItemSerializer, CharacterSerializer,
+    CustomTokenObtainPairSerializer
+)
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -43,7 +32,6 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
-
 class RegisterViewSet(viewsets.ViewSet):
     permission_classes = [permissions.AllowAny]
 
@@ -51,10 +39,8 @@ class RegisterViewSet(viewsets.ViewSet):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             data = serializer.save()
-
-            # Создаем персонажа после успешной регистрации
+            
             user = data['user']
-            Character.objects.create(user=user)
 
             return Response({
                 'access': data['access'],
@@ -62,59 +48,134 @@ class RegisterViewSet(viewsets.ViewSet):
             }, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-class CharacterViewSet(viewsets.ModelViewSet):
-    queryset = Character.objects.all()
-    serializer_class = CharacterSerializer
+    
+    
+class CharacterViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Character.objects.filter(user=self.request.user)
+        return Inventory.objects.filter(user=self.request.user, is_purchased=True)
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-    @action(detail=False, methods=["get"], url_path="me")
-    def get_my_character(self, request):
+    @action(detail=False, methods=['get'], url_path='get-character')
+    def get_character(self, request):
         try:
-            character = Character.objects.get(user=request.user)
-            serializer = self.get_serializer(character)
-            return Response(serializer.data)
-        except Character.DoesNotExist:
-            return Response({"detail": "Character not found"}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            # Временно добавим вывод ошибки в консоль
-            print("🔥 Ошибка в get_my_character:", e)
-            return Response({"detail": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            user = request.user
+            print(f"User: {user.email}")
+            print(f"Inventory items: {user.inventory.all().count()}")
 
-    @action(detail=False, methods=["put"], url_path="update")
-    def update_character(self, request):
-        """
-        Обновление информации о персонаже, например, XP и Gold.
-        """
+            # Проверка данных перед сериализацией
+            for item in user.inventory.all():
+                print(f"Inventory item {item.id}: item={item.item.id}, equipped={item.is_equipped}")
+
+            serializer = CharacterSerializer(user)
+            return Response(serializer.data)
+
+        except Exception as e:
+            print(f"Error in get_character: {str(e)}")
+            return Response({"error": str(e)}, status=500)
+
+    @action(detail=False, methods=['post'], url_path='change-item')
+    def change_item(self, request):
+        user = request.user
+        inventory_item_id = request.data.get('inventory_item_id')
+
+        if not inventory_item_id:
+            return Response({'error': 'inventory_item_id is required'}, status=400)
+
         try:
-            character = Character.objects.get(user=request.user)
-            # Обновляем XP и Gold
-            xp = request.data.get("xp", character.xp)
-            gold = request.data.get("gold", character.gold)
+            inventory_item = Inventory.objects.get(id=inventory_item_id, user=user)
 
-            character.xp = xp
-            character.gold = gold
-            character.save()
+            if not (inventory_item.is_unlocked and inventory_item.is_purchased):
+                return Response(
+                    {'error': 'Item is not unlocked or purchased'},
+                    status=400
+                )
 
-            serializer = self.get_serializer(character)
-            return Response(serializer.data)
-        except Character.DoesNotExist:
-            return Response({"detail": "Character not found"}, status=status.HTTP_404_NOT_FOUND)
+            item_type = inventory_item.item.type
+
+            # Снимаем все экипированные предметы того же типа
+            # Для hair/headwear обрабатываем как одну группу
+            if item_type in ['hair', 'headwear']:
+                Inventory.objects.filter(
+                    user=user,
+                    is_equipped=True
+                ).filter(
+                    Q(item__type='hair') | Q(item__type='headwear')
+                ).update(is_equipped=False)
+            else:
+                # Для других типов (top, bottom, boots) снимаем только предметы того же типа
+                Inventory.objects.filter(
+                    user=user,
+                    is_equipped=True,
+                    item__type=item_type
+                ).update(is_equipped=False)
+
+            # Надеваем выбранный предмет
+            inventory_item.is_equipped = True
+            inventory_item.save()
+
+            serializer = CharacterSerializer(user)
+            return Response({
+                'status': 'item changed',
+                'character': serializer.data
+            })
+
+        except Inventory.DoesNotExist:
+            return Response({'error': 'Item not found in inventory'}, status=404)
         except Exception as e:
-            print("🔥 Ошибка в update_character:", e)
-            return Response({"detail": "Internal Server Error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': str(e)}, status=500)
+
+
+
+class ShopViewSet(viewsets.ModelViewSet):
+    queryset = Shop.objects.all()
+    serializer_class = ItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=True, methods=['post'], url_path='unlock')
+    def unlock(self, request, pk=None):
+        user = request.user
+        item = get_object_or_404(Shop, pk=pk)
+
+        if Inventory.objects.filter(user=user, item=item).exists():
+            return Response({"detail": "Уже разблокировано"}, status=400)
+
+        if user.xp < item.required_xp:
+            return Response({"detail": "Недостаточно XP"}, status=400)
+
+        user.xp -= item.required_xp
+        user.save()
+
+        Inventory.objects.create(user=user, item=item, is_unlocked=True, is_purchased=False)
+        return Response({"detail": "Успешно разблокировано"})
+
+    @action(detail=True, methods=['post'], url_path='purchase')
+    def purchase(self, request, pk=None):
+        user = request.user
+        item = self.get_object()
+
+        inventory_item = Inventory.objects.filter(user=user, item=item).first()
+        if inventory_item and inventory_item.is_purchased:
+            return Response({"detail": "Предмет уже куплен."}, status=400)
+
+        if user.gold < item.price:
+            return Response({"detail": "Недостаточно золота для покупки."}, status=400)
+
+        user.gold -= item.price
+        user.save()
+
+        if inventory_item:
+            inventory_item.is_purchased = True
+            inventory_item.save()
+        else:
+            Inventory.objects.create(user=user, item=item, is_unlocked=True, is_purchased=True)
+
+        return Response({"detail": "Предмет успешно куплен."}, status=200)
+
 
 
 class TaskViewSet(viewsets.ModelViewSet):
-    queryset = Task.objects.all()  # Add this if missing
+    queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -130,81 +191,42 @@ class TaskViewSet(viewsets.ModelViewSet):
         if not task.is_completed:
             task.is_completed = True
             task.save()
-            character = Character.objects.get(user=request.user)
-            character.xp += task.reward_xp
-            character.gold += task.reward_gold
-            character.save()
+            user = request.user
+            user.xp += task.reward_xp
+            user.gold += task.reward_gold
+            user.save()
 
             return Response({
                 'status': 'Task completed.',
                 'reward_xp': task.reward_xp,
                 'reward_gold': task.reward_gold,
-                'character': CharacterSerializer(character).data,
+                'user': UserSerializer(user).data,
             })
         else:
             return Response({'status': 'Task already completed.'}, status=400)
 
-
-class ItemViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Item.objects.all()
-    serializer_class = ItemSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
     @action(detail=True, methods=['post'])
-    def buy(self, request, pk=None):
-        item = self.get_object()
-        user = request.user
-        character = Character.objects.get(user=user)
+    def uncomplete(self, request, pk=None):
+        task = self.get_object()
+        if task.is_completed:
+            task.is_completed = False
+            task.save()
+            user = request.user
 
-        # already owns it?
-        if UserItem.objects.filter(user=user, item=item).exists():
-            return Response({'detail': 'Item already owned.'}, status=400)
+            # Проверяем, чтобы не уйти в минус
+            user.xp = max(0, user.xp - task.reward_xp)
+            user.gold = max(0, user.gold - task.reward_gold)
+            user.save()
 
-        # has enough gold?
-        if character.gold < item.price:
-            return Response({'detail': 'Not enough gold.'}, status=400)
+            return Response({
+                'status': 'Task uncompleted.',
+                'reward_xp': -task.reward_xp,
+                'reward_gold': -task.reward_gold,
+                'user': UserSerializer(user).data,
+            })
+        else:
+            return Response({'status': 'Task is not completed.'}, status=400)
 
-        # process purchase
-        character.gold -= item.price
-        character.save()
-
-        UserItem.objects.create(user=user, item=item)
-        return Response({'detail': f'You bought {item.name}!'}, status=200)
-
-class UserItemViewSet(viewsets.ModelViewSet):
-    queryset = UserItem.objects.all()  # Add this line
-    serializer_class = UserItemSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return UserItem.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-class SkinViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Skin.objects.all()
-    serializer_class = SkinSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-class UnlockedSkinViewSet(viewsets.ModelViewSet):
-    queryset = UnlockedSkin.objects.all()
-    serializer_class = UnlockedSkinSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return UnlockedSkin.objects.filter(user=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-class CharacterAppearanceViewSet(viewsets.ModelViewSet):
-    queryset = CharacterAppearance.objects.all()  # Add this if missing
-    serializer_class = CharacterAppearanceSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        return CharacterAppearance.objects.filter(character__user=self.request.user)
 
 
 # Add TokenObtainPairView and TokenRefreshView for login functionality

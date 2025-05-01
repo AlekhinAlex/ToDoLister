@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
-
+from django.db.models import Q
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
@@ -11,21 +11,12 @@ class User(AbstractUser):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []  # Убираем email из REQUIRED_FIELDS
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)# Путь к папке для аватарок
+    gold = models.PositiveIntegerField(default=0)
+    xp = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = 'auth_user'
-
-class Character(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    name = models.CharField(max_length=50)
-    level = models.PositiveIntegerField(default=1)
-    gold = models.PositiveIntegerField(default=0)
-    xp = models.PositiveIntegerField(default=0)  # Новое поле для опыта
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return self.name
+        
 
 class Task(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tasks')
@@ -38,52 +29,49 @@ class Task(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-
-class Item(models.Model):
+class Shop(models.Model):
     ITEM_TYPES = [
-        ('hat', 'Hat'),
-        ('pants', 'Pants'),
-        ('glasses', 'Glasses'),
-        ('sword', 'Sword'),
-        ('shirt', 'Shirt'),
+        ('hair', 'Hair/Headwear'),  # Объединяем hair и headwear в одну группу
+        ('top', 'Top'),
+        ('bottom', 'Bottom'),
         ('boots', 'Boots'),
     ]
+    type = models.CharField(max_length=20, choices=ITEM_TYPES)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    item_type = models.CharField(max_length=20, choices=ITEM_TYPES)
-    price = models.PositiveIntegerField()
-    required_level = models.PositiveIntegerField(default=1)
-    image_url = models.URLField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    required_xp = models.PositiveIntegerField(default=0)
+    price = models.PositiveIntegerField(default=0)
+    image_preview_url = models.URLField(blank=True, null=True)  # картинка для магазина
+    image_character_url = models.URLField(blank=True, null=True)  # картинка для персонажа
+    is_default = models.BooleanField(default=False)
 
 
-class UserItem(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='user_items')
-    item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    is_equipped = models.BooleanField(default=False)
-    acquired_at = models.DateTimeField(auto_now_add=True)
+class Inventory(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='inventory')
+    item = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name='in_inventory')
+    is_equipped = models.BooleanField(blank=False, default=False)
+    is_unlocked = models.BooleanField(default=False)
+    is_purchased = models.BooleanField(default=False)
 
+    def save(self, *args, **kwargs):
+        if self.is_equipped:
+            item_type = self.item.type
 
-class Skin(models.Model):
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    required_level = models.PositiveIntegerField(default=1)
-    image_url = models.URLField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+            # Для hair/headwear обрабатываем как одну группу
+            if item_type in ['hair', 'headwear']:
+                Inventory.objects.filter(
+                    user=self.user,
+                    is_equipped=True
+                ).exclude(id=self.id).filter(
+                    models.Q(item__type='hair') | models.Q(item__type='headwear')
+                ).update(is_equipped=False)
+            else:
+                # Для других типов (top, bottom, boots) снимаем предметы того же типа
+                Inventory.objects.filter(
+                    user=self.user,
+                    is_equipped=True,
+                    item__type=item_type
+                ).exclude(id=self.id).update(is_equipped=False)
 
-
-class UnlockedSkin(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='unlocked_skins')
-    skin = models.ForeignKey(Skin, on_delete=models.CASCADE)
-    unlocked_at = models.DateTimeField(auto_now_add=True)
-
-
-class CharacterAppearance(models.Model):
-    character = models.OneToOneField(Character, on_delete=models.CASCADE)
-    hat = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_hat')
-    pants = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_pants')
-    glasses = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_glasses')
-    sword = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_sword')
-    shirt = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_shirt')
-    boots = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipped_boots')
-    updated_at = models.DateTimeField(auto_now=True)
+        super().save(*args, **kwargs)
+    

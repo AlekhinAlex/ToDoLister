@@ -1,9 +1,8 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Character, Task, Item, UserItem, Skin, UnlockedSkin, CharacterAppearance
+from .models import Task, Shop, Inventory
 from rest_framework import serializers
-from todoDataBase.models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
@@ -52,14 +51,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['email'] = user.email
         return token
 
-
-
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = [ 'username', 'email', 'avatar']
-
-
+        fields = '__all__'
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -72,56 +67,99 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
         refresh = RefreshToken.for_user(user)
+
+        # Дать дефолтные предметы
+        self.give_default_items(user)
+
         return {
             'user': user,
             'access': str(refresh.access_token),
             'refresh': str(refresh)
         }
 
-
-
-class CharacterSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Character
-        fields = ['id', 'name', 'level', 'xp', 'gold']
-
+    def give_default_items(self, user):
+        default_items = Shop.objects.filter(is_default=True)  # Filter by is_default instead
+        for item in default_items:
+            Inventory.objects.create(
+                user=user,
+                item=item,
+                is_equipped=True,
+                is_unlocked=True,
+                is_purchased=True
+            )
 
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = '__all__'
-        read_only_fields = ['user', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
 
 
 class ItemSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Item
-        fields = '__all__'
+        model = Shop
+        # image_character_url has to be changed to the image_preview_url later
+        fields = ['id', 'name', 'description', 'price', 'type', 'required_xp','image_preview_url']
+
+        
+
+class EquippedItemsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ['id', 'type', 'name', 'image_url']
+        
+# class InventorySerializer(serializers.ModelSerializer):
+#     similar_items = serializers.SerializerMethodField()
+#     item = ItemSerializer()
+#     class Meta:
+#         model = Inventory
+#         fields = ['id', 'user', 'item', 'is_equipped', 'similar_items']
+#
+#     def get_similar_items(self, obj):
+#         item_type = obj.item.type
+#         user = obj.user
+#         similar_items = Inventory.objects.filter(user=user, item__type=item_type)
+#         return UserItemSerializer(similar_items, many=True).data
+#
+#
+# class CharacterSerializer(serializers.ModelSerializer):
+#     equipped_items = serializers.SerializerMethodField()
+#     inventory = InventorySerializer(many=True, source='inventory')  # ключевой момент
+#
+#     class Meta:
+#         model = User
+#         fields = ['id', 'username', 'avatar', 'xp', 'gold', 'equipped_items', 'inventory']
+#
+#     def get_equipped_items(self, obj):
+#         equipped = obj.inventory.filter(is_equipped=True)
+#         return InventorySerializer(equipped, many=True).data
+
+class InventorySerializer(serializers.ModelSerializer):
+    item = ItemSerializer()
+
+    class Meta:
+        model = Inventory
+        fields = ['id', 'item', 'is_equipped', 'is_unlocked', 'is_purchased']
+        depth = 1  # Добавьте это для включения связанных объектов
+
+
+class CharacterSerializer(serializers.ModelSerializer):
+    equipped_items = serializers.SerializerMethodField()
+    inventory = InventorySerializer(many=True, source='inventory.all')
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'avatar', 'xp', 'gold', 'equipped_items', 'inventory']
+
+    def get_equipped_items(self, obj):
+        equipped = obj.inventory.filter(is_equipped=True)
+        return InventorySerializer(equipped, many=True).data
 
 
 class UserItemSerializer(serializers.ModelSerializer):
     item = ItemSerializer()
 
     class Meta:
-        model = UserItem
-        fields = ['id', 'item', 'is_equipped', 'acquired_at']
-
-
-class SkinSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Skin
-        fields = '__all__'
-
-
-class UnlockedSkinSerializer(serializers.ModelSerializer):
-    skin = SkinSerializer()
-
-    class Meta:
-        model = UnlockedSkin
-        fields = ['id', 'skin', 'unlocked_at']
-
-
-class CharacterAppearanceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CharacterAppearance
-        fields = '__all__'
+        model = Inventory
+        fields = ['id', 'user', 'item', 'is_equipped']
+        
