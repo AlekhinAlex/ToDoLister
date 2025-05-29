@@ -1,0 +1,7 @@
+[
+  {"model": "todoDataBase.rank", "pk": 1, "fields": {"name": "Новичок", "required_xp": 0}},
+  {"model": "todoDataBase.rank", "pk": 2, "fields": {"name": "Ученик", "required_xp": 100}},
+  {"model": "todoDataBase.rank", "pk": 3, "fields": {"name": "Искатель", "required_xp": 300}},
+  {"model": "todoDataBase.rank", "pk": 4, "fields": {"name": "Мастер", "required_xp": 700}},
+  {"model": "todoDataBase.rank", "pk": 5, "fields": {"name": "Легенда", "required_xp": 1500}}
+]

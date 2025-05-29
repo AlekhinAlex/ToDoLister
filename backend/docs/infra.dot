@@ -1,0 +1,67 @@
+digraph INFRA {
+  node [ color = "black", fillcolor = "#E6E6E6", height =1, style = "filled,bold,rounded", fontname = "Arial" ];
+  "User" [ label = "User
+(Django::Model)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "User.gold" [ label = "User.gold
+(Django::PositiveIntegerField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "User.xp" [ label = "User.xp
+(Django::PositiveIntegerField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Inventory" [ label = "Inventory
+(Django::Model)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Inventory.is_equipped" [ label = "Inventory.is_equipped
+(Django::BooleanField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Inventory.is_unlocked" [ label = "Inventory.is_unlocked
+(Django::BooleanField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Inventory.is_purchased" [ label = "Inventory.is_purchased
+(Django::BooleanField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Shop" [ label = "Shop
+(Django::Model)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Shop.type" [ label = "Shop.type
+(Django::CharField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Shop.name" [ label = "Shop.name
+(Django::CharField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Shop.description" [ label = "Shop.description
+(Django::TextField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Shop.required_xp" [ label = "Shop.required_xp
+(Django::PositiveIntegerField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Shop.price" [ label = "Shop.price
+(Django::PositiveIntegerField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Shop.image_character_url" [ label = "Shop.image_character_url
+(Django::URLField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Shop.image_preview_url" [ label = "Shop.image_preview_url
+(Django::URLField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Shop.is_default" [ label = "Shop.is_default
+(Django::BooleanField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Task" [ label = "Task
+(Django::Model)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Task.base_reward_gold" [ label = "Task.base_reward_gold
+(Django::PositiveIntegerField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Task.base_reward_xp" [ label = "Task.base_reward_xp
+(Django::PositiveIntegerField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Task.difficulty" [ label = "Task.difficulty
+(Django::PositiveSmallIntegerField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Task.reward_gold" [ label = "Task.reward_gold
+(Django::PositiveIntegerField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "Task.reward_xp" [ label = "Task.reward_xp
+(Django::PositiveIntegerField)", shape =cylinder, fillcolor = "#FFCFB3" ];
+  "User.gold" -> "User";
+  "User.xp" -> "User";
+  "Inventory" -> "User";
+  "Inventory" -> "Shop";
+  "Inventory.is_equipped" -> "Inventory";
+  "Inventory.is_unlocked" -> "Inventory";
+  "Inventory.is_purchased" -> "Inventory";
+  "Shop.type" -> "Shop";
+  "Shop.name" -> "Shop";
+  "Shop.description" -> "Shop";
+  "Shop.required_xp" -> "Shop";
+  "Shop.price" -> "Shop";
+  "Shop.image_character_url" -> "Shop";
+  "Shop.image_preview_url" -> "Shop";
+  "Shop.is_default" -> "Shop";
+  "Task.base_reward_gold" -> "Task";
+  "Task.base_reward_xp" -> "Task";
+  "Task.difficulty" -> "Task";
+  "Task.reward_gold" -> "Task";
+  "Task.reward_xp" -> "Task";
+}
