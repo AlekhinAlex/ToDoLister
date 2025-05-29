@@ -1,7 +1,7 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Task, Shop, Inventory
+from .models import Task, Shop, Inventory, Rank
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
@@ -56,6 +56,9 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = '__all__'
 
+    def get_rank(self, obj):
+        return obj.current_rank.name if obj.current_rank else None
+
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -88,18 +91,27 @@ class RegisterSerializer(serializers.ModelSerializer):
                 is_purchased=True
             )
 
-class TaskSerializer(serializers.ModelSerializer):
+
+class RankSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Task
-        fields = '__all__'
-        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'reward_xp', 'reward_gold']
-
-
+        model = Rank
+        fields = ['id', 'name', 'required_xp', 'image']
 class ItemSerializer(serializers.ModelSerializer):
+    required_rank = RankSerializer(read_only=True)
+    
     class Meta:
         model = Shop
-        # image_character_url has to be changed to the image_preview_url later
-        fields = ['id', 'name', 'description', 'price', 'type', 'required_xp','image_preview_url']
+        fields = [
+            'id', 
+            'name', 
+            'description', 
+            'price', 
+            'type', 
+            'required_rank', 
+            'image_preview_url',
+            'is_default'
+        ]
+
 
         
 
@@ -107,32 +119,6 @@ class EquippedItemsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Shop
         fields = ['id', 'type', 'name', 'image_url']
-        
-# class InventorySerializer(serializers.ModelSerializer):
-#     similar_items = serializers.SerializerMethodField()
-#     item = ItemSerializer()
-#     class Meta:
-#         model = Inventory
-#         fields = ['id', 'user', 'item', 'is_equipped', 'similar_items']
-#
-#     def get_similar_items(self, obj):
-#         item_type = obj.item.type
-#         user = obj.user
-#         similar_items = Inventory.objects.filter(user=user, item__type=item_type)
-#         return UserItemSerializer(similar_items, many=True).data
-#
-#
-# class CharacterSerializer(serializers.ModelSerializer):
-#     equipped_items = serializers.SerializerMethodField()
-#     inventory = InventorySerializer(many=True, source='inventory')  # ключевой момент
-#
-#     class Meta:
-#         model = User
-#         fields = ['id', 'username', 'avatar', 'xp', 'gold', 'equipped_items', 'inventory']
-#
-#     def get_equipped_items(self, obj):
-#         equipped = obj.inventory.filter(is_equipped=True)
-#         return InventorySerializer(equipped, many=True).data
 
 class InventorySerializer(serializers.ModelSerializer):
     item = ItemSerializer()
@@ -146,15 +132,31 @@ class InventorySerializer(serializers.ModelSerializer):
 class CharacterSerializer(serializers.ModelSerializer):
     equipped_items = serializers.SerializerMethodField()
     inventory = InventorySerializer(many=True, source='inventory.all')
+    rank = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'avatar', 'xp', 'gold', 'equipped_items', 'inventory']
+        fields = ['id', 'username', 'email', 'avatar', 'xp', 'gold', 'rank', 'equipped_items', 'inventory']
 
     def get_equipped_items(self, obj):
         equipped = obj.inventory.filter(is_equipped=True)
         return InventorySerializer(equipped, many=True).data
+    
+    def get_rank(self, obj):
+        rank = obj.current_rank
+        request = self.context.get('request')
+        
+        if rank:
+            return {
+                'id': rank.id,
+                'name': rank.name,
+                'required_xp': rank.required_xp,
+                'image': request.build_absolute_uri(rank.image.url) if rank.image and request else None
+            }
+        return None
 
+
+        
 
 class UserItemSerializer(serializers.ModelSerializer):
     item = ItemSerializer()
@@ -162,4 +164,8 @@ class UserItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = Inventory
         fields = ['id', 'user', 'item', 'is_equipped']
-        
+class TaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = '__all__'
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at', 'reward_xp', 'reward_gold']

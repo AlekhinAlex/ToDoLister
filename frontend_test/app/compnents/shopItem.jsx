@@ -6,25 +6,41 @@ const ShopItem = ({
   name,
   description,
   price,
-  required_xp,
+  required_rank,
+  rank_name,
+  is_available,
   is_unlocked,
   is_purchased,
   image,
   onUnlock,
   onPurchase,
+  current_rank,
 }) => {
   const getStatus = () => {
     if (is_purchased) return "purchased";
     if (is_unlocked) return "unlocked";
+    if (!is_available) return "locked_by_rank";
     return "locked";
   };
 
   const status = getStatus();
 
   return (
-    <View style={[styles.itemContainer, status === "locked" && styles.lockedItem]}>
+    <View style={[
+      styles.itemContainer,
+      status === "locked_by_rank" && styles.lockedByRankItem,
+      status === "locked" && styles.lockedItem
+    ]}>
       <View style={styles.imageWrapper}>
         <Image source={{ uri: image }} style={styles.image} />
+        {!is_available && (
+          <View style={styles.rankRequirement}>
+            <Ionicons name="ribbon-outline" size={16} color="#fff" />
+            <Text style={styles.rankRequirementText}>
+              Ранг {rank_name || required_rank}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.infoContainer}>
@@ -52,25 +68,50 @@ const ShopItem = ({
           {status === "locked" && (
             <View style={styles.lockedInfo}>
               <Ionicons name="lock-closed-outline" size={18} color="#e67e22" />
+
+            </View>
+          )}
+
+          {status === "locked_by_rank" && (
+            <View style={styles.lockedInfo}>
+              <Ionicons name="lock-closed-outline" size={18} color="#9b59b6" />
               <Text style={styles.lockedText}>
-                Нужно <Text style={styles.highlightedXP}>{required_xp}</Text> XP
+                Требуется ранг {rank_name || required_rank}
+              </Text>
+              <Text style={styles.rankProgress}>
+                Ваш ранг: {current_rank}
               </Text>
             </View>
           )}
         </View>
 
-        {/* Кнопки теперь в отдельном контейнере внизу */}
         <View style={styles.buttonContainer}>
           {status === "unlocked" && (
-            <TouchableOpacity style={styles.purchaseButton} onPress={onPurchase}>
+            <TouchableOpacity
+              style={styles.purchaseButton}
+              onPress={onPurchase}
+              disabled={!is_available}
+            >
               <Text style={styles.purchaseButtonText}>Купить</Text>
             </TouchableOpacity>
           )}
 
           {status === "locked" && (
-            <TouchableOpacity style={styles.unlockButton} onPress={onUnlock}>
+            <TouchableOpacity
+              style={styles.unlockButton}
+              onPress={onUnlock}
+              disabled={!is_available}
+            >
               <Text style={styles.unlockButtonText}>Разблокировать</Text>
             </TouchableOpacity>
+          )}
+
+          {status === "locked_by_rank" && (
+            <View style={styles.progressContainer}>
+              <Text style={styles.progressText}>
+                Ваш ранг: {current_rank} / Требуется: {required_rank}
+              </Text>
+            </View>
           )}
         </View>
       </View>
@@ -98,17 +139,39 @@ const styles = StyleSheet.create({
     opacity: 0.85,
     borderColor: "#e67e22",
   },
+  lockedByRankItem: {
+    opacity: 0.7,
+    borderColor: "#9b59b6",
+  },
   imageWrapper: {
     width: "100%",
     height: 140,
     backgroundColor: "#f0f0f0",
     justifyContent: "center",
     alignItems: "center",
+    position: 'relative',
   },
   image: {
     width: "100%",
     height: "100%",
     resizeMode: "contain",
+  },
+  rankRequirement: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(155, 89, 182, 0.8)',
+    padding: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankRequirementText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 5,
   },
   infoContainer: {
     padding: 12,
@@ -156,13 +219,19 @@ const styles = StyleSheet.create({
     color: "#d35400",
   },
   lockedInfo: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "column",
+    alignItems: "flex-start",
     marginBottom: 6,
   },
   lockedText: {
     fontSize: 13,
     color: "#8e6e53",
+    marginLeft: 6,
+  },
+  rankProgress: {
+    fontSize: 12,
+    color: "#7f8c8d",
+    marginTop: 4,
     marginLeft: 6,
   },
   purchaseButton: {
@@ -193,6 +262,16 @@ const styles = StyleSheet.create({
     color: "green",
     fontWeight: "600",
     textAlign: "center",
+  },
+  progressContainer: {
+    backgroundColor: '#f0f0f0',
+    padding: 8,
+    borderRadius: 8,
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#7f8c8d',
+    textAlign: 'center',
   },
 });
 

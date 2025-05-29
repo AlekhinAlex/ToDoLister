@@ -401,7 +401,7 @@ const ProfileScreen = () => {
           </View>
         </Modal>
       </LinearGradient>
-    </PaperProvider>
+    </PaperProvider >
   );
 };
 

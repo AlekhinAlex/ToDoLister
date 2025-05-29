@@ -12,7 +12,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'myproject.settings')
 # Настроить Django
 django.setup()
 
-from todoDataBase.models import Shop
+from todoDataBase.models import Shop, Rank
 
 # Путь до папки с картинками
 MEDIA_ROOT = 'media/shop_items/characters'
@@ -32,6 +32,9 @@ def main():
     Shop.objects.all().delete()
     print("Очищены все старые предметы из магазина.")
 
+    # Загружаем все ранги в словарь для быстрого доступа по XP
+    xp_to_rank = {rank.required_xp: rank for rank in Rank.objects.all()}
+
     for root, dirs, files in os.walk(MEDIA_ROOT):  # теперь обходим все подпапки
         for filename in files:
             if filename.endswith('.png') or filename.endswith('.jpg'):
@@ -42,17 +45,20 @@ def main():
                     continue
 
                 name = filename.split('.')[0]  # без расширения
-
-                # --- здесь важно ---
-                is_default= 'default' in name  # будет True если "default" в имени
-                # -------------------
-
+                is_default = 'default' in name
                 description = f"Описание для {name}"
 
-                # Ценообразование
-                required_xp = random.choice([0]) #  , 100, 200, 300, 500
-                price = random.choice([0]) #50, 100, 200, 400, 800])
-                is_unlocked = False
+                if is_default:
+                    price = 0
+                    required_rank = None
+                else:
+                    price = random.choice([0])  # можно заменить, если нужно добавить цены
+                    required_xp = random.choice([100, 300, 700, 1500])
+                    required_rank = xp_to_rank.get(required_xp)
+                    if required_rank is None:
+                        print(f"Не найден ранг с XP={required_xp} для {name}")
+                        continue
+
                 # Получаем путь относительно MEDIA_ROOT
                 relative_path = os.path.relpath(full_path, 'media')
                 url_path = relative_path.replace(os.sep, '/')
@@ -64,7 +70,7 @@ def main():
                     type=item_type,
                     name=name,
                     description=description,
-                    required_xp=required_xp,
+                    required_rank=required_rank,
                     price=price,
                     is_default=is_default,
                     image_preview_url=preview_url,

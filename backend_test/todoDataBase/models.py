@@ -17,6 +17,10 @@ class User(AbstractUser):
     class Meta:
         db_table = 'auth_user'
 
+    @property
+    def current_rank(self):
+        from .models import Rank  # Avoid circular import
+        return Rank.objects.filter(required_xp__lte=self.xp).order_by('-required_xp').first()
 
 class Task(models.Model):
     DIFFICULTY_CHOICES = [
@@ -77,7 +81,13 @@ class Shop(models.Model):
     type = models.CharField(max_length=20, choices=ITEM_TYPES)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    required_xp = models.PositiveIntegerField(default=0)
+    required_rank = models.ForeignKey(
+        'Rank', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        help_text="Минимальный ранг для разблокировки предмета"
+    )
     price = models.PositiveIntegerField(default=0)
     image_preview_url = models.URLField(blank=True, null=True)  # картинка для магазина
     image_character_url = models.URLField(blank=True, null=True)  # картинка для персонажа
@@ -112,4 +122,13 @@ class Inventory(models.Model):
                 ).exclude(id=self.id).update(is_equipped=False)
 
         super().save(*args, **kwargs)
-    
+
+class Rank(models.Model):
+    name = models.CharField(max_length=100)
+    required_xp = models.PositiveIntegerField()
+    image = models.ImageField(upload_to='ranks/', null=True, blank=True)
+    class Meta:
+        ordering = ['required_xp']
+
+    def __str__(self):
+        return self.name

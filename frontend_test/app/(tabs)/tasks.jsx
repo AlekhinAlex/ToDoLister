@@ -12,6 +12,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import TaskInfo from "../compnents/taskInfo";
 import EditTaskModal from "../compnents/editTaskModal";
+import RankDisplay from "../compnents/rankModal";
+import RankUpAnimation from '../compnents/rankUpAnimation';
 import ConfirmDeleteModal from "../compnents/confirmDeleteModal";
 import { isTokenExpired, refreshAccessToken } from "./lib/authTokenManager";
 import { getToken, setToken } from "./lib/storage";
@@ -67,6 +69,15 @@ const Tasks = () => {
   const [sortBy, setSortBy] = useState("default");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [deletingTasks, setDeletingTasks] = useState({});
+  const [characterData, setCharacterData] = useState({
+    gold: 0,
+    xp: 0,
+    next_rank: null,
+    rank: null,
+  });
+  const [showRankUp, setShowRankUp] = useState(false);
+  const [oldRank, setOldRank] = useState(null);
+  const [newRank, setNewRank] = useState(null);
 
   const sortOptions = [
     { label: "По умолчанию", value: "default" },
@@ -108,34 +119,64 @@ const Tasks = () => {
 
   const getUserTasksAndBalanceWithToken = async (accessToken) => {
     try {
-      const tasksResponse = await fetch(`${API_BASE}/api/tasks/`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const [tasksResponse, characterResponse, ranksResponse] = await Promise.all([
+        fetch(`${API_BASE}/api/tasks/`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }),
+        fetch(`${API_BASE}/api/character/get-character/`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }),
+        fetch(`${API_BASE}/api/ranks/`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
+      ]);
 
-      if (!tasksResponse.ok) {
-        throw new Error(`Ошибка задач: ${tasksResponse.statusText}`);
-      }
-
+      if (!tasksResponse.ok) throw new Error(`Ошибка задач: ${tasksResponse.statusText}`);
       const tasksData = await tasksResponse.json();
       setTasks(tasksData);
 
-      const characterResponse = await fetch(`${API_BASE}/api/user/me/`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (characterResponse.ok) {
+      if (characterResponse.ok && ranksResponse.ok) {
         const characterData = await characterResponse.json();
-        setBalance(characterData.gold || 0);
-        setXp(characterData.xp || 0);
+        const ranksData = await ranksResponse.json();
+
+        const sortedRanks = [...ranksData].sort((a, b) => a.required_xp - b.required_xp);
+        const userXP = characterData.xp || 0;
+
+        let currentRank = null;
+        let nextRank = null;
+
+        for (let i = 0; i < sortedRanks.length; i++) {
+          const rank = sortedRanks[i];
+          if (userXP >= rank.required_xp) {
+            currentRank = rank;
+          } else if (!nextRank) {
+            nextRank = rank;
+          }
+        }
+
+        setCharacterData({
+          gold: characterData.gold || 0,
+          xp: userXP,
+          rank: currentRank,
+          next_rank: nextRank,
+          user: characterData,
+        });
       }
+
+
+
     } catch (error) {
       console.error("Ошибка:", error.message);
     }
@@ -148,31 +189,118 @@ const Tasks = () => {
       const updatedStatus = !wasCompleted;
       const { access } = await getToken();
 
+      // Обновляем задачу
       await updateTask(taskId, {
         ...taskToUpdate,
         completed: updatedStatus,
       }, access);
 
+      // Получаем текущие данные перед обновлением
+      const currentXP = characterData.xp;
+      const currentGold = characterData.gold;
+      const currentRank = characterData.rank;
+
       if (updatedStatus) {
+        // Завершаем задачу (существующая логика)
         await fetch(`${API_BASE}/api/tasks/${taskId}/complete/`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${access}`,
           },
         });
-        setXp((prev) => prev + (taskToUpdate.reward_xp || 0));
-        setBalance((prev) => prev + (taskToUpdate.reward_gold || 0));
+
+        // Вычисляем новые значения
+        const newXP = currentXP + (taskToUpdate.reward_xp || 0);
+        const newGold = currentGold + (taskToUpdate.reward_gold || 0);
+
+        // Проверяем, изменился ли ранг
+        const ranksResponse = await fetch(`${API_BASE}/api/ranks/`, {
+          headers: {
+            Authorization: `Bearer ${access}`,
+          },
+        });
+        const ranksData = await ranksResponse.json();
+        const sortedRanks = [...ranksData].sort((a, b) => a.required_xp - b.required_xp);
+
+        let userNewRank = null;
+        let userNextRank = null;
+
+        for (let i = 0; i < sortedRanks.length; i++) {
+          const rank = sortedRanks[i];
+          if (newXP >= rank.required_xp) {
+            userNewRank = rank;
+          } else if (!userNextRank) {
+            userNextRank = rank;
+          }
+        }
+
+        // Если ранг изменился, запускаем анимацию
+        if (userNewRank && userNewRank.id !== currentRank?.id) {
+          setOldRank(currentRank);
+          setNewRank(userNewRank);
+          setShowRankUp(true);
+        }
+
+        // Обновляем состояние
+        setCharacterData(prev => ({
+          ...prev,
+          xp: newXP,
+          gold: newGold,
+          rank: userNewRank || prev.rank,
+          next_rank: userNextRank
+        }));
       } else {
+        // Отменяем выполнение задачи (обновленная логика)
         await fetch(`${API_BASE}/api/tasks/${taskId}/uncomplete/`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${access}`,
           },
         });
-        setXp((prev) => prev - (taskToUpdate.reward_xp || 0));
-        setBalance((prev) => prev - (taskToUpdate.reward_gold || 0));
+
+        // Вычисляем новые значения с учетом отмены
+        const newXP = Math.max(0, currentXP - (taskToUpdate.reward_xp || 0));
+        const newGold = Math.max(0, currentGold - (taskToUpdate.reward_gold || 0));
+
+        // Получаем актуальные данные о рангах
+        const ranksResponse = await fetch(`${API_BASE}/api/ranks/`, {
+          headers: {
+            Authorization: `Bearer ${access}`,
+          },
+        });
+        const ranksData = await ranksResponse.json();
+        const sortedRanks = [...ranksData].sort((a, b) => a.required_xp - b.required_xp);
+
+        let userNewRank = null;
+        let userNextRank = null;
+
+        for (let i = 0; i < sortedRanks.length; i++) {
+          const rank = sortedRanks[i];
+          if (newXP >= rank.required_xp) {
+            userNewRank = rank;
+          } else if (!userNextRank) {
+            userNextRank = rank;
+          }
+        }
+
+        // Если ранг изменился (понизился), обновляем состояние
+        if (userNewRank?.id !== currentRank?.id) {
+          setOldRank(currentRank);
+          setNewRank(userNewRank);
+          // Можно добавить анимацию понижения ранга, если нужно
+        }
+
+        // Обновляем состояние
+        setCharacterData(prev => ({
+          ...prev,
+          xp: newXP,
+          gold: newGold,
+          rank: userNewRank || null,
+          next_rank: userNextRank
+        }));
       }
 
+      // Обновляем статус задачи
       setTasks(tasks.map((task) =>
         task.id === taskId ? { ...task, is_completed: updatedStatus } : task
       ));
@@ -324,16 +452,29 @@ const Tasks = () => {
               <Text style={styles.title}>Мои Задачи</Text>
             </View>
             <View style={styles.statusContainer}>
-              <View style={styles.statusItem}>
-                <Ionicons name="cash-outline" size={20} color="#FFD700" />
-                <Text style={styles.statusText}>{gold}</Text>
-              </View>
-              <View style={styles.statusItem}>
-                <Ionicons name="school-outline" size={20} color="#FFD700" />
-                <Text style={styles.statusText}>{xp}</Text>
-              </View>
+              {Dimensions.get("window").width >= 764 && (
+                <View style={styles.statusContainer}>
+                  <RankDisplay
+                    xp={characterData.xp}
+                    money={characterData.gold}
+                    rank={characterData.rank}
+                    nextRank={characterData.next_rank}
+                  />
+                </View>
+              )}
             </View>
           </View>
+
+          {Dimensions.get("window").width < 764 && (
+            <View style={styles.statusContainerCompact}>
+              <RankDisplay
+                xp={characterData.xp}
+                money={characterData.gold}
+                rank={characterData.rank}
+                nextRank={characterData.next_rank}
+              />
+            </View>
+          )}
 
           <View style={styles.tabContainer}>
             <View style={styles.tabsWrapper}>
@@ -472,6 +613,14 @@ const Tasks = () => {
             penaltyXp={deletingTask ? 2 * deletingTask.reward_xp : 0}
             penaltyGold={deletingTask ? 2 * deletingTask.reward_gold : 0}
           />
+
+          <RankUpAnimation
+            visible={showRankUp}
+            oldRank={oldRank}
+            newRank={newRank}
+            onComplete={() => setShowRankUp(false)}
+          />
+
         </View>
       </ScrollView>
     </LinearGradient>
@@ -530,6 +679,7 @@ const styles = StyleSheet.create({
   },
   tasksOuterWrapper: { alignSelf: "center" },
   statusContainer: { alignItems: "center", gap: 8, marginTop: 10 },
+  statusContainerCompact: { alignItems: "center", gap: 8, marginTop: 10, marginBottom: 20 },
   statusItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -638,6 +788,30 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
     fontSize: 16,
+  },
+  rankContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  rankImage: {
+    width: 40,
+    height: 40,
+    marginRight: 10,
+  },
+  rankText: {
+    color: '#FFD700',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  progressContainer: {
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  progressText: {
+    color: '#FFF',
+    fontSize: 12,
+    marginTop: 5,
   },
 });
 

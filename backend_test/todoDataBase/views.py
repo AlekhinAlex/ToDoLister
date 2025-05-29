@@ -8,11 +8,11 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.exceptions import ValidationError, APIException
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import User, Task, Shop, Inventory
+from .models import User, Task, Shop, Inventory, Rank
 from .serializers import (
     UserSerializer, RegisterSerializer, TaskSerializer,
     ItemSerializer, UserItemSerializer, CharacterSerializer,
-    CustomTokenObtainPairSerializer
+    CustomTokenObtainPairSerializer, RankSerializer
 )
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -60,16 +60,8 @@ class CharacterViewSet(viewsets.ViewSet):
     def get_character(self, request):
         try:
             user = request.user
-            print(f"User: {user.email}")
-            print(f"Inventory items: {user.inventory.all().count()}")
-
-            # Проверка данных перед сериализацией
-            for item in user.inventory.all():
-                print(f"Inventory item {item.id}: item={item.item.id}, equipped={item.is_equipped}")
-
-            serializer = CharacterSerializer(user)
+            serializer = CharacterSerializer(user, context={'request': request})
             return Response(serializer.data)
-
         except Exception as e:
             print(f"Error in get_character: {str(e)}")
             return Response({"error": str(e)}, status=500)
@@ -132,45 +124,81 @@ class ShopViewSet(viewsets.ModelViewSet):
     serializer_class = ItemSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def list(self, request):
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
     @action(detail=True, methods=['post'], url_path='unlock')
     def unlock(self, request, pk=None):
-        user = request.user
-        item = get_object_or_404(Shop, pk=pk)
+        try:
+            user = request.user
+            item = get_object_or_404(Shop, pk=pk)
 
-        if Inventory.objects.filter(user=user, item=item).exists():
-            return Response({"detail": "Уже разблокировано"}, status=400)
+            # Проверяем, есть ли требуемый ранг у предмета
+            if item.required_rank:
+                # Проверяем ранг пользователя
+                if not user.current_rank:
+                    return Response(
+                        {"detail": "У пользователя нет текущего ранга"},
+                        status=400
+                    )
+                # Сравниваем ранги
+                if user.current_rank.id < item.required_rank.id:
+                    return Response(
+                        {"detail": f"Требуется ранг {item.required_rank.name} или выше"},
+                        status=400
+                    )
 
-        if user.xp < item.required_xp:
-            return Response({"detail": "Недостаточно XP"}, status=400)
+            # Проверяем, не разблокирован ли уже предмет
+            if Inventory.objects.filter(user=user, item=item).exists():
+                return Response({"detail": "Предмет уже разблокирован"}, status=400)
 
-        user.xp -= item.required_xp
-        user.save()
-
-        Inventory.objects.create(user=user, item=item, is_unlocked=True, is_purchased=False)
-        return Response({"detail": "Успешно разблокировано"})
+            # Создаем запись в инвентаре
+            Inventory.objects.create(
+                user=user,
+                item=item,
+                is_unlocked=True,
+                is_purchased=False
+            )
+            
+            return Response({"detail": "Предмет успешно разблокирован"})
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
 
     @action(detail=True, methods=['post'], url_path='purchase')
     def purchase(self, request, pk=None):
-        user = request.user
-        item = self.get_object()
+        try:
+            user = request.user
+            item = self.get_object()
 
-        inventory_item = Inventory.objects.filter(user=user, item=item).first()
-        if inventory_item and inventory_item.is_purchased:
-            return Response({"detail": "Предмет уже куплен."}, status=400)
+            inventory_item = Inventory.objects.filter(user=user, item=item).first()
+            if inventory_item and inventory_item.is_purchased:
+                return Response({"detail": "Предмет уже куплен."}, status=400)
 
-        if user.gold < item.price:
-            return Response({"detail": "Недостаточно золота для покупки."}, status=400)
+            if user.gold < item.price:
+                return Response({"detail": "Недостаточно золота для покупки."}, status=400)
 
-        user.gold -= item.price
-        user.save()
+            user.gold -= item.price
+            user.save()
 
-        if inventory_item:
-            inventory_item.is_purchased = True
-            inventory_item.save()
-        else:
-            Inventory.objects.create(user=user, item=item, is_unlocked=True, is_purchased=True)
+            if inventory_item:
+                inventory_item.is_purchased = True
+                inventory_item.save()
+            else:
+                Inventory.objects.create(
+                    user=user,
+                    item=item,
+                    is_unlocked=True,
+                    is_purchased=True
+                )
 
-        return Response({"detail": "Предмет успешно куплен."}, status=200)
+            return Response({"detail": "Предмет успешно куплен."}, status=200)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
 
 
 class TaskViewSet(viewsets.ModelViewSet):
@@ -315,3 +343,7 @@ class LogoutViewSet(viewsets.ViewSet):
             except Exception as e:
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"error": "Refresh token required"}, status=status.HTTP_400_BAD_REQUEST)
+
+class RankViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Rank.objects.all()
+    serializer_class = RankSerializer
