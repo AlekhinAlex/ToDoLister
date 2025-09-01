@@ -3,13 +3,13 @@ import { Modal, View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 
-const ConfirmDeleteModal = ({ 
-  visible, 
-  onConfirm, 
-  onCancel, 
-  isCompleted, 
-  penaltyXp, 
-  penaltyGold 
+const ConfirmDeleteModal = ({
+  visible,
+  onConfirm,
+  onCancel,
+  isCompleted,
+  penaltyXp,
+  penaltyGold
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
 
@@ -31,7 +31,7 @@ const ConfirmDeleteModal = ({
           <Text style={styles.title}>
             {isCompleted ? "Удалить задачу?" : "Отменить задачу?"}
           </Text>
-          
+
           <Text style={styles.subtitle}>
             {isCompleted ? "Это действие нельзя будет отменить." : "Это действие приведет к штрафу."}
           </Text>
@@ -65,14 +65,14 @@ const ConfirmDeleteModal = ({
           </View>
 
           <View style={styles.buttons}>
-            <TouchableOpacity 
-              onPress={onCancel} 
+            <TouchableOpacity
+              onPress={onCancel}
               style={styles.cancelButton}
               disabled={isAnimating}
             >
               <Text style={styles.cancelText}>Отмена</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={handleConfirm}
               disabled={isAnimating}
             >

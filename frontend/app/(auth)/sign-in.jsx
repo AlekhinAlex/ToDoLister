@@ -16,7 +16,7 @@ import Toast from "react-native-toast-message";
 import FormField from "../compnents/formField";
 import jwtDecode from "jwt-decode";
 import { setToken, getToken } from "../(tabs)/lib/storage";
-
+import { API_BASE } from "../(tabs)/lib/api";
 
 const isTokenExpired = (token) => {
   try {
@@ -44,7 +44,7 @@ const SignIn = () => {
         if (tokenObj.access && !isTokenExpired(tokenObj.access)) {
           router.replace("/(tabs)/tasks");
         } else if (tokenObj.refresh && !isTokenExpired(tokenObj.refresh)) {
-          const response = await fetch("http://127.0.0.1:8000/api/token/refresh/", {
+          const response = await fetch(`${API_BASE}/api/token/refresh/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ refresh: tokenObj.refresh }),
@@ -93,7 +93,7 @@ const SignIn = () => {
     setIsLoading(true);
 
     try {
-      const url = `http://127.0.0.1:8000/api/login/`;
+      const url = `${API_BASE}/api/login/`;
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -22,9 +22,7 @@ import { router } from "expo-router";
 import Toast from "react-native-toast-message";
 import * as ImagePicker from "expo-image-picker";
 import InventoryItem from "../compnents/inventoryItem";
-
-
-const API_BASE = "http://127.0.0.1:8000";
+import { API_BASE } from "./lib/api";
 
 
 const ProfileScreen = () => {

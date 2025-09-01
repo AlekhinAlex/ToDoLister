@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 from datetime import timedelta
+import dj_database_url # Render DB connection
 from pathlib import Path
 import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -118,21 +119,25 @@ CORS_ALLOWED_ORIGINS = [
 
 DATABASES = {
 
-    'default': {
+    "default": dj_database_url.config(
+        default=os.environ.get("DATABASE_URL")
+    )
 
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+    # 'default': {
 
-        'NAME':'tododb_v1',
+    #     'ENGINE': 'django.db.backends.postgresql_psycopg2',
 
-        'USER': 'todolist',
+    #     'NAME':'tododb_v1',
 
-        'PASSWORD': 'ADmIN123',
+    #     'USER': 'todolist',
 
-        'HOST': 'localhost',
+    #     'PASSWORD': 'ADmIN123',
 
-        'PORT': '',
+    #     'HOST': 'localhost',
 
-    }
+    #     'PORT': '',
+
+    # }   
 
 }
 

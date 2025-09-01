@@ -15,6 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import FormField from "../compnents/formField";
+import { API_BASE } from "../(tabs)/lib/api";
 
 const SignUp = () => {
   const router = useRouter();
@@ -57,7 +58,7 @@ const SignUp = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/register/", {
+      const response = await fetch(`${API_BASE}/api/register/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

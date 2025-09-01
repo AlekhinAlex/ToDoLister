@@ -7,8 +7,7 @@ import ShopItem from "../compnents/shopItem";
 import { isTokenExpired, refreshAccessToken } from "./lib/authTokenManager";
 import { getToken, setToken } from "./lib/storage";
 import Toast from "react-native-toast-message";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { API_BASE } from "./lib/api";
 
 const ShopScreen = () => {
   const [shopItems, setShopItems] = useState([]);

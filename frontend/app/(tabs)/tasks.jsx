@@ -18,8 +18,8 @@ import ConfirmDeleteModal from "../compnents/confirmDeleteModal";
 import { isTokenExpired, refreshAccessToken } from "./lib/authTokenManager";
 import { getToken, setToken } from "./lib/storage";
 import { createTask, updateTask } from "./lib/api";
+import { API_BASE } from "./lib/api";
 
-const API_BASE = "http://127.0.0.1:8000";
 
 const SortModal = ({ visible, options, selectedValue, onSelect, onClose }) => (
   <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
