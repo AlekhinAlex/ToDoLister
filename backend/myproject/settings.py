@@ -21,12 +21,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-flf0&gqmedjcq94+lrl+2da(+g1hykbj6v7^amh0c1(ydmgts+'
+# SECRET_KEY = 'django-insecure-flf0&gqmedjcq94+lrl+2da(+g1hykbj6v7^amh0c1(ydmgts+'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG = False
 
-ALLOWED_HOSTS = []
+SECRET_KEY = os.environ.get("SECRET_KEY", "unsafe-dev-key")
+DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
+
+
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", os.environ.get("RENDER_EXTERNAL_HOSTNAME", "localhost")).split(",")
+
 
 AUTH_USER_MODEL = 'todoDataBase.User'
 
@@ -51,11 +56,13 @@ INSTALLED_APPS = [
     'corsheaders', #new
 ]
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', #new
-    'django.middleware.common.CommonMiddleware', #new
+    'corsheaders.middleware.CorsMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -104,14 +111,15 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',  # оставляем, чтобы другие механизмы работали
 ]
 
-CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True  # Для всех источников
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8081",
-    "http://localhost:3000",
-    "http://127.0.0.1:8000",
-]
+
+#! Uncomment for dev
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:8081",
+#     "http://localhost:3000",
+#     "http://127.0.0.1:8000",
+# ]
 
 
 # Database
@@ -176,6 +184,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
