@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, Text, View, StyleSheet, ActivityIndicator, Dimensions } from "react-native";
+import { ScrollView, Text, View, StyleSheet, ActivityIndicator, Dimensions, TouchableOpacity } from "react-native";
 import RankDisplay from "../compnents/rankModal";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import ShopItem from "../compnents/shopItem";
-import { isTokenExpired, refreshAccessToken } from "./lib/authTokenManager";
-import { getToken, setToken } from "./lib/storage";
+import { isTokenExpired, refreshAccessToken } from "../lib/authTokenManager";
+import { getToken, setToken } from "../lib/storage";
 import Toast from "react-native-toast-message";
-import { API_BASE } from "./lib/api";
+import { API_BASE } from "../lib/api";
 
 const ShopScreen = () => {
   const [shopItems, setShopItems] = useState([]);
@@ -18,6 +18,7 @@ const ShopScreen = () => {
     rank: null,
     next_rank: null,
   });
+  const [activeCategory, setActiveCategory] = useState('all');
 
   useEffect(() => {
     fetchShopAndBalance();
@@ -230,56 +231,123 @@ const ShopScreen = () => {
     }
   };
 
+  const categories = [
+    { id: 'all', label: 'Все', icon: 'grid' },
+    { id: 'hair', label: 'Прически', icon: 'cut' },
+    { id: 'headwear', label: 'Головные уборы', icon: 'baseball' },
+    { id: 'top', label: 'Верх', icon: 'shirt' },
+    { id: 'bottom', label: 'Низ', icon: 'body' },
+    { id: 'boots', label: 'Обувь', icon: 'footsteps' },
+  ];
+
+  const filteredItems = activeCategory === 'all'
+    ? shopItems
+    : shopItems.filter(item => item.type === activeCategory);
+
+  if (loading) {
+    return (
+      <LinearGradient colors={["#0f0c29", "#302b63", "#24243e"]} style={[styles.gradient, styles.center]}>
+        <ActivityIndicator animating={true} color="#FFFFFF" size="large" />
+      </LinearGradient>
+    );
+  }
+
   return (
-    <LinearGradient colors={["#4169d1", "#9ba7be"]} style={styles.gradient}>
+    <LinearGradient colors={["#0f0c29", "#302b63", "#24243e"]} style={styles.gradient}>
       <ScrollView contentContainerStyle={styles.container}>
+        {/* Заголовок */}
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <Ionicons name="cart" size={50} color="#fff" />
+            <Ionicons name="cart" size={32} color="#fff" />
             <Text style={styles.title}>Магазин</Text>
           </View>
 
-          {Dimensions.get("window").width > 764 && (
-            <View style={styles.statusContainerCompact}>
-              <RankDisplay
-                xp={characterData.xp}
-                money={characterData.gold}
-                rank={characterData.rank}
-                nextRank={characterData.next_rank}
-              />
+          <View style={styles.balanceContainer}>
+            <View style={styles.balanceItem}>
+              <Ionicons name="cash" size={20} color="#FFD700" />
+              <Text style={styles.balanceText}>{characterData.gold}</Text>
             </View>
-          )}
+            <View style={styles.balanceItem}>
+              <Ionicons name="star" size={20} color="#3B82F6" />
+              <Text style={styles.balanceText}>{characterData.xp}</Text>
+            </View>
+          </View>
         </View>
 
-        {Dimensions.get("window").width < 764 && (
-          <View style={styles.statusContainerCompact}>
-            <RankDisplay
-              xp={characterData.xp}
-              money={characterData.gold}
-              rank={characterData.rank}
-              nextRank={characterData.next_rank}
-            />
-          </View>
-        )}
+        {/* Статус ранга */}
+        <View style={styles.rankContainer}>
+          <RankDisplay
+            xp={characterData.xp}
+            money={characterData.gold}
+            rank={characterData.rank}
+            nextRank={characterData.next_rank}
+            compact={true}
+          />
+        </View>
 
-        <View style={styles.itemsGrid}>
-          {shopItems.map((item) => (
-            <ShopItem
-              key={item.id.toString()}
-              name={item.name}
-              description={item.description}
-              price={item.price}
-              required_rank={item.required_rank?.id}
-              rank_name={item.required_rank?.name}
-              is_available={item.is_available}
-              is_unlocked={item.is_unlocked}
-              is_purchased={item.is_purchased}
-              image={item.image_preview_url}
-              onUnlock={() => handleUnlock(item.id)}
-              onPurchase={() => handlePurchase(item.id)}
-              current_rank={characterData.rank?.id || 0}
-            />
+        {/* Категории */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoriesContainer}
+          contentContainerStyle={styles.categoriesContent}
+        >
+          {categories.map((category) => (
+            <TouchableOpacity
+              key={category.id}
+              style={[
+                styles.categoryButton,
+                activeCategory === category.id && styles.categoryButtonActive
+              ]}
+              onPress={() => setActiveCategory(category.id)}
+            >
+              <Ionicons
+                name={category.icon}
+                size={20}
+                color={activeCategory === category.id ? "#4169d1" : "#aaa"}
+              />
+              <Text style={[
+                styles.categoryText,
+                activeCategory === category.id && styles.categoryTextActive
+              ]}>
+                {category.label}
+              </Text>
+            </TouchableOpacity>
           ))}
+        </ScrollView>
+
+        {/* Сетка товаров */}
+        <View style={styles.itemsGrid}>
+          {filteredItems.length > 0 ? (
+            filteredItems.map((item) => (
+              <ShopItem
+                key={item.id.toString()}
+                name={item.name}
+                description={item.description}
+                price={item.price}
+                required_rank={item.required_rank?.id}
+                rank_name={item.required_rank?.name}
+                is_available={item.is_available}
+                is_unlocked={item.is_unlocked}
+                is_purchased={item.is_purchased}
+                image={item.image_preview_url}
+                onUnlock={() => handleUnlock(item.id)}
+                onPurchase={() => handlePurchase(item.id)}
+                current_rank={characterData.rank?.id || 0}
+                type={item.type}
+              />
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="search-off" size={60} color="rgba(255,255,255,0.3)" />
+              <Text style={styles.emptyStateText}>
+                {activeCategory === 'all'
+                  ? 'Магазин пуст'
+                  : `Нет предметов в категории "${categories.find(c => c.id === activeCategory)?.label}"`
+                }
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </LinearGradient>
@@ -287,66 +355,106 @@ const ShopScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 55,
-    paddingBottom: 100,
-  },
   gradient: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
+  center: {
     justifyContent: "center",
     alignItems: "center",
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
+  container: {
+    flexGrow: 1,
+    padding: 20,
+    paddingBottom: 40,
   },
-  title: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: "#ffffff",
-    textShadowColor: "rgba(0,0,0,0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  balanceContainer: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  balanceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  balanceText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  rankContainer: {
+    marginBottom: 20,
+  },
+  categoriesContainer: {
+    marginBottom: 20,
+    maxHeight: 40,
+  },
+  categoriesContent: {
     gap: 10,
+    paddingHorizontal: 5,
+  },
+  categoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  categoryButtonActive: {
+    backgroundColor: 'rgba(65, 105, 209, 0.2)',
+    borderColor: '#4169d1',
+  },
+  categoryText: {
+    color: '#aaa',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  categoryTextActive: {
+    color: '#4169d1',
+    fontWeight: '600',
   },
   itemsGrid: {
-    gap: 10,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-around",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 15,
+    justifyContent: 'center',
+    minHeight: 200,
   },
-  statusText: {
-    color: "#FFD700",
-    marginLeft: 6,
-    fontSize: 20,
-    fontWeight: "600",
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    gap: 15,
   },
-  statusContainer: {
-    alignItems: "center",
-    gap: 8,
-    marginTop: 10,
+  emptyStateText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 16,
+    textAlign: 'center',
   },
-  statusItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  statusContainer: { alignItems: "center", gap: 8, marginTop: 10 },
-  statusContainerCompact: { alignItems: "center", gap: 8, marginTop: 10, marginBottom: 20 },
 });
 
 export default ShopScreen;

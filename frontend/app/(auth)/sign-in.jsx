@@ -15,8 +15,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import FormField from "../compnents/formField";
 import jwtDecode from "jwt-decode";
-import { setToken, getToken } from "../(tabs)/lib/storage";
-import { API_BASE } from "../(tabs)/lib/api";
+import { setToken, getToken } from "../lib/storage";
+import { API_BASE } from "../lib/api";
 
 const isTokenExpired = (token) => {
   try {
@@ -143,7 +143,7 @@ const SignIn = () => {
 
   return (
     <LinearGradient
-      colors={["#1E3A8A", "#C084FC"]}
+      colors={["#0f0c29", "#302b63", "#24243e"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={styles.gradient}

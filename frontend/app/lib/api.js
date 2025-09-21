@@ -1,22 +1,35 @@
 import { getToken } from "./storage";
 
 export const API_BASE = "https://todolister-edw1.onrender.com";
+//export const API_BASE = "http://127.0.0.1:8000";
 
 export const createTask = async (taskData, accessToken) => {
   try {
+    // Убедимся, что отправляем только нужные поля
+    const payload = {
+      title: taskData.title,
+      description: taskData.description,
+      difficulty: parseInt(taskData.difficulty),
+      type: parseInt(taskData.type),
+      collaboration_type: parseInt(taskData.collaboration_type || 1),
+      // Не отправляем collaborators здесь - они отправляются отдельно
+    };
+
+    console.log('Отправляемые данные задачи:', payload);
+
     const response = await fetch(`${API_BASE}/api/tasks/`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(taskData),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("Детали ошибки создания задачи:", errorData);
-      throw new Error(errorData.detail || "Не удалось создать задачу");
+      const errorData = await response.json();
+      console.error('Детали ошибки от сервера:', errorData);
+      throw new Error(errorData.detail || `Не удалось создать задачу: ${response.statusText}`);
     }
 
     return await response.json();
@@ -28,18 +41,30 @@ export const createTask = async (taskData, accessToken) => {
 
 export const updateTask = async (taskId, taskData, accessToken) => {
   try {
+    const payload = {
+      title: taskData.title,
+      description: taskData.description,
+      difficulty: parseInt(taskData.difficulty),
+      type: parseInt(taskData.type),
+      collaboration_type: parseInt(taskData.collaboration_type || 1),
+      is_completed: taskData.is_completed || false,
+    };
+
+    console.log('Отправляемые данные для обновления:', payload);
+
     const response = await fetch(`${API_BASE}/api/tasks/${taskId}/`, {
-      method: "PUT", // или PATCH, если обновляешь не всё
+      method: "PATCH", // Используем PATCH для частичного обновления
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify(taskData),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || "Не удалось обновить задачу");
+      const errorData = await response.json();
+      console.error('Детали ошибки от сервера:', errorData);
+      throw new Error(errorData.detail || `Не удалось обновить задачу: ${response.statusText}`);
     }
 
     return await response.json();

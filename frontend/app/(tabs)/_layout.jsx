@@ -2,178 +2,254 @@ import {
   StyleSheet,
   View,
   TouchableOpacity,
-  Dimensions,
   Text,
-  Platform,
+  Dimensions,
+  Animated,
 } from "react-native";
-import React, { useEffect, useState } from "react";
-import { useRouter, usePathname, Slot, Tabs } from "expo-router";
+import React, { useEffect, useState, useRef } from "react";
+import { useRouter, usePathname, Slot } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import Toast from "react-native-toast-message";
 
 const TabsLayout = () => {
   const [isSmallScreen, setIsSmallScreen] = useState(
-    Dimensions.get("window").width < 764
+    Dimensions.get("window").width < 768
   );
+  const [isPanelVisible, setIsPanelVisible] = useState(!isSmallScreen);
   const router = useRouter();
   const pathname = usePathname();
+
+  // плавная анимация панели
+  const panelPosition = useRef(new Animated.Value(isSmallScreen ? -280 : 0)).current;
 
   const tabs = [
     { name: "tasks", icon: "list", label: "Задачи" },
     { name: "profile", icon: "person", label: "Профиль" },
     { name: "shop", icon: "cart", label: "Магазин" },
+    { name: "friends", icon: "people", label: "Друзья" },
+    { name: "settings", icon: "settings", label: "Настройки" },
   ];
 
   useEffect(() => {
-    const updateLayout = ({ window }) => {
-      setIsSmallScreen(window.width < 764);
+    const updateLayout = () => {
+      const smallScreen = window.innerWidth < 768;
+      setIsSmallScreen(smallScreen);
+      if (smallScreen && isPanelVisible) togglePanel(false);
+      else if (!smallScreen && !isPanelVisible) togglePanel(true);
     };
-    const subscription = Dimensions.addEventListener("change", updateLayout);
-    return () => subscription?.remove();
-  }, []);
 
-  if (isSmallScreen) {
-    return (
-      <>
-        <Tabs
-          screenOptions={{
-            tabBarStyle: styles.mobileMenu,
-            tabBarActiveTintColor: "white",
-            tabBarInactiveTintColor: "#C084FC",
-            tabBarLabelStyle: { fontWeight: "700", fontSize: 14 },
-            tabBarItemStyle: { borderRadius: 25 },
-            tabBarBackground: () => (
-              <LinearGradient
-                colors={["#3a0ca3", "#7209b7"]}
-                start={{ x: 0, y: 1 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradient}
-              />
-            ),
-            headerShown: false,
-          }}
-        >
-          {tabs.map((tab) => (
-            <Tabs.Screen
+    window.addEventListener("resize", updateLayout);
+    return () => window.removeEventListener("resize", updateLayout);
+  }, [isPanelVisible]);
+
+  const togglePanel = (visible) => {
+    setIsPanelVisible(visible);
+    Animated.spring(panelPosition, {
+      toValue: visible ? 0 : -280,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 50,
+    }).start();
+  };
+
+  const PanelContent = () => (
+    <View style={styles.panel}>
+      <View style={styles.panelHeader}>
+        <Text style={styles.panelTitle}>Меню</Text>
+        {isSmallScreen && (
+          <TouchableOpacity
+            onPress={() => togglePanel(false)}
+            style={styles.closeButton}
+          >
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <View style={styles.panelItems}>
+        {tabs.map((tab) => {
+          const isActive = pathname.includes(tab.name);
+          return (
+            <TouchableOpacity
               key={tab.name}
-              name={tab.name}
-              options={{
-                title: tab.label,
-                headerShown: false,
-                tabBarIcon: ({ focused }) => (
-                  <Ionicons
-                    name={focused ? tab.icon : `${tab.icon}-outline`}
-                    size={24}
-                    color={focused ? "white" : "#C084FC"}
-                  />
-                ),
+              onPress={() => {
+                router.push(`/(tabs)/${tab.name}`);
+                if (isSmallScreen) togglePanel(false);
               }}
-            />
-          ))}
-        </Tabs>
-        <Toast />
-      </>
-    );
-  }
-
-  // Десктоп-режим
-  return (
-    <>
-      <View style={{ flex: 1, backgroundColor: "#1e1e2e" }}>
-        <View style={styles.desktopTabs}>
-          {tabs.map((tab) => {
-            const isActive = pathname.includes(tab.name);
-            return (
-              <TouchableOpacity
-                key={tab.name}
-                onPress={() => router.push(`/(tabs)/${tab.name}`)}
-                activeOpacity={0.9}
+              activeOpacity={0.9}
+              style={[
+                styles.panelItem,
+                isActive && styles.panelItemActive,
+              ]}
+            >
+              <Ionicons
+                name={isActive ? tab.icon : `${tab.icon}-outline`}
+                size={22}
+                color={isActive ? "#fff" : "#d1d5db"}
                 style={[
-                  styles.desktopTabWrapper,
-                  isActive && styles.activeTabWrapper,
-                  Platform.OS === "web" && styles.webHoverable,
+                  styles.icon,
+                  isActive && styles.iconActive,
+                ]}
+              />
+              <Text
+                style={[
+                  styles.panelText,
+                  { color: isActive ? "#fff" : "#d1d5db" },
                 ]}
               >
-                <View style={[styles.desktopTab, isActive && styles.activeTab]}>
-                  <Ionicons name={tab.icon} size={22} color="white" />
-                  <Text style={styles.desktopTabText}>{tab.label}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Активный экран */}
-        <View style={{ flex: 1 }}>
-          <Slot />
-        </View>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
+
+      <View style={styles.panelFooter}>
+        <Text style={styles.footerText}>ToDo List</Text>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      {/* Кнопка меню для мобильных */}
+      {isSmallScreen && (
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => togglePanel(true)}
+        >
+          <Ionicons name="menu" size={28} color="white" />
+        </TouchableOpacity>
+      )}
+
+      <Animated.View
+        style={[
+          styles.panelContainer,
+          { transform: [{ translateX: panelPosition }] },
+        ]}
+      >
+        <PanelContent />
+      </Animated.View>
+
+      {/* Контент */}
+      <View
+        style={[
+          styles.content,
+          isSmallScreen && styles.mobileContent,
+        ]}
+      >
+        <Slot />
+      </View>
+
+      {/* Overlay на мобилках */}
+      {isSmallScreen && isPanelVisible && (
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={() => togglePanel(false)}
+        />
+      )}
+
       <Toast />
-    </>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  mobileMenu: {
-    flexDirection: "column",
-    backgroundColor: "transparent",
-    height: 70,
-    borderTopWidth: 0,
-    elevation: 10,
-    marginHorizontal: 13,
-    position: "absolute",
-    bottom: 10,
-    left: 10,
-    right: 10,
-    borderRadius: 25,
-    overflow: "hidden",
-
-  },
-  gradient: {
+  container: {
     flex: 1,
+    backgroundColor: "#0f0c29", // общий тёмный фон
   },
-  desktopTabs: {
+  panelContainer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 280,
+    backgroundColor: "rgba(255, 255, 255, 0.08)", // полупрозрачный
+    borderRightWidth: 1,
+    borderRightColor: "rgba(255, 255, 255, 0.15)",
+    backdropFilter: "blur(14px)", // liquid glass эффект (только web)
+    boxShadow: "2px 0 15px rgba(0,0,0,0.5)",
+    zIndex: 10,
+  },
+  panel: {
+    flex: 1,
+    paddingTop: 50,
+    paddingHorizontal: 15,
+  },
+  panelHeader: {
     flexDirection: "row",
-    justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: "#4169d1",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
   },
-  desktopTabWrapper: {
-    borderRadius: 20,
-    overflow: "hidden",
-    marginHorizontal: 10,
+  panelTitle: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "700",
   },
-  activeTabWrapper: {
-    transition: ".4s",
-    transform: [{ scale: 1.1 }],
+  closeButton: {
+    padding: 5,
   },
-  webHoverable: {
-    cursor: "pointer",
+  panelItems: {
+    flex: 1,
+    gap: 10,
   },
-  desktopTab: {
-    backgroundColor: "#6D8BDE",
+  panelItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    transition: "all 0.25s ease",
+    cursor: "pointer",
   },
-  desktopTabText: {
-    marginLeft: 8,
-    color: "white",
+  panelItemActive: {
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+  icon: {
+    marginRight: 12,
+  },
+  iconActive: {
+    textShadow: "0 0 8px rgba(255,255,255,0.7)",
+  },
+  panelText: {
     fontWeight: "600",
-    fontSize: 20,
+    fontSize: 16,
   },
-  activeTab: {
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.6)",
+  panelFooter: {
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.15)",
+  },
+  footerText: {
+    color: "rgba(255,255,255,0.7)",
+    textAlign: "center",
+    fontSize: 12,
+  },
+  content: {
+    flex: 1,
+    marginLeft: 280,
+    // padding : 20,
+  },
+  mobileContent: {
+    marginLeft: 0,
+  },
+  menuButton: {
+    position: "absolute",
+    top: 20,
+    left: 20,
+    zIndex: 20,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 12,
+    padding: 10,
+    backdropFilter: "blur(10px)",
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    zIndex: 5,
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   Modal,
   Dimensions,
+  Animated,
+  RefreshControl,
+  TextInput
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,16 +18,18 @@ import EditTaskModal from "../compnents/editTaskModal";
 import RankDisplay from "../compnents/rankModal";
 import RankUpAnimation from '../compnents/rankUpAnimation';
 import ConfirmDeleteModal from "../compnents/confirmDeleteModal";
-import { isTokenExpired, refreshAccessToken } from "./lib/authTokenManager";
-import { getToken, setToken } from "./lib/storage";
-import { createTask, updateTask } from "./lib/api";
-import { API_BASE } from "./lib/api";
-
+import { isTokenExpired, refreshAccessToken } from "../lib/authTokenManager";
+import CollaborationConfirmModal from '../compnents/CollaborationConfirmModal';
+import { getToken, setToken } from "../lib/storage";
+import { createTask, updateTask } from "../lib/api";
+import { API_BASE } from "../lib/api";
+import CollaborationNotifications from "../compnents/CollaborationNotifications";
 
 const SortModal = ({ visible, options, selectedValue, onSelect, onClose }) => (
   <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
-    <View style={modalStyles.overlay}>
+    <TouchableOpacity style={modalStyles.overlay} activeOpacity={1} onPress={onClose}>
       <View style={modalStyles.content}>
+        <Text style={modalStyles.title}>Сортировка</Text>
         {options.map((option) => (
           <TouchableOpacity
             key={option.value}
@@ -51,7 +56,7 @@ const SortModal = ({ visible, options, selectedValue, onSelect, onClose }) => (
           </TouchableOpacity>
         ))}
       </View>
-    </View>
+    </TouchableOpacity>
   </Modal>
 );
 
@@ -59,8 +64,6 @@ const Tasks = () => {
   const [editingTask, setEditingTask] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [tasks, setTasks] = useState([]);
-  const [gold, setBalance] = useState(0);
-  const [xp, setXp] = useState(0);
   const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
   const [taskIdToDelete, setTaskIdToDelete] = useState(null);
   const [deletingTask, setDeletingTask] = useState(null);
@@ -78,6 +81,21 @@ const Tasks = () => {
   const [showRankUp, setShowRankUp] = useState(false);
   const [oldRank, setOldRank] = useState(null);
   const [newRank, setNewRank] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const [collaborationModalVisible, setCollaborationModalVisible] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState(null);
+  const [pendingTask, setPendingTask] = useState(null);
+
+  const stats = {
+    total: tasks.length,
+    completed: tasks.filter(task => task.is_completed).length,
+    active: tasks.filter(task => !task.is_completed).length
+  };
 
   const sortOptions = [
     { label: "По умолчанию", value: "default" },
@@ -86,19 +104,38 @@ const Tasks = () => {
     { label: "По сложности (легкие)", value: "difficulty_easy" },
     { label: "По сложности (сложные)", value: "difficulty_hard" },
     { label: "По типу", value: "type" },
+    { label: "По награде (высокая)", value: "reward_high" },
+    { label: "По награде (низкая)", value: "reward_low" },
   ];
 
   useEffect(() => {
+    let isMounted = true;
+
     const handleResize = ({ window }) => {
-      setIsCompact(window.width < 764);
+      if (isMounted) {
+        setIsCompact(window.width < 764);
+      }
     };
 
     const subscription = Dimensions.addEventListener("change", handleResize);
-    return () => subscription?.remove();
+
+    return () => {
+      isMounted = false;
+      subscription?.remove();
+    };
   }, []);
 
   useEffect(() => {
     fetchUserTasksAndBalance();
+  }, []);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchUserTasksAndBalance().then(() => {
+      if (!unmounted) {
+        setRefreshing(false);
+      }
+    });
   }, []);
 
   const fetchUserTasksAndBalance = async () => {
@@ -174,9 +211,6 @@ const Tasks = () => {
           user: characterData,
         });
       }
-
-
-
     } catch (error) {
       console.error("Ошибка:", error.message);
     }
@@ -258,7 +292,7 @@ const Tasks = () => {
           },
         });
 
-        // Вычисляем новые значения с учетом отмены
+        // Вычисляем новые значения с учетом отмена
         const newXP = Math.max(0, currentXP - (taskToUpdate.reward_xp || 0));
         const newGold = Math.max(0, currentGold - (taskToUpdate.reward_gold || 0));
 
@@ -287,7 +321,6 @@ const Tasks = () => {
         if (userNewRank?.id !== currentRank?.id) {
           setOldRank(currentRank);
           setNewRank(userNewRank);
-          // Можно добавить анимацию понижения ранга, если нужно
         }
 
         // Обновляем состояние
@@ -335,8 +368,12 @@ const Tasks = () => {
         });
 
         if (task && !task.is_completed) {
-          setXp((prev) => Math.max(0, prev - 2 * (task.reward_xp || 0)));
-          setBalance((prev) => Math.max(0, prev - 2 * (task.reward_gold || 0)));
+          // Обновляем данные персонажа
+          setCharacterData(prev => ({
+            ...prev,
+            xp: Math.max(0, prev.xp - 2 * (task.reward_xp || 0)),
+            gold: Math.max(0, prev.gold - 2 * (task.reward_gold || 0)),
+          }));
         }
 
         setTasks(tasks.filter((task) => task.id !== taskIdToDelete));
@@ -370,6 +407,7 @@ const Tasks = () => {
     setIsModalVisible(true);
   };
 
+
   const handleSave = async (updatedTask) => {
     try {
       let token = await getToken();
@@ -382,25 +420,43 @@ const Tasks = () => {
         await setToken(token);
       }
 
+      // Подготавливаем данные для задачи (без collaborators)
       const taskData = {
         title: updatedTask.title,
         description: updatedTask.description,
-        difficulty: updatedTask.difficulty,
-        type: updatedTask.type,
+        difficulty: parseInt(updatedTask.difficulty),
+        type: parseInt(updatedTask.type),
+        collaboration_type: parseInt(updatedTask.collaboration_type || 1),
         is_completed: updatedTask.completed || false,
       };
 
+      let savedTask;
       if (tasks.some((t) => t.id === editingTask.id)) {
-        const updated = await updateTask(editingTask.id, taskData, token.access);
-        setTasks(tasks.map((t) => (t.id === updated.id ? updated : t)));
+        // Обновляем существующую задачу
+        savedTask = await updateTask(editingTask.id, taskData, token.access);
+        setTasks(tasks.map((t) => (t.id === savedTask.id ? savedTask : t)));
       } else {
-        const created = await createTask(taskData, token.access);
-        setTasks([...tasks, created]);
+        // Создаем новую задачу
+        savedTask = await createTask(taskData, token.access);
+        setTasks([...tasks, savedTask]);
+      }
+
+      // Отправляем приглашения коллабораторам если они есть
+      if (updatedTask.collaborators && updatedTask.collaborators.length > 0) {
+        try {
+          const collaboratorIds = updatedTask.collaborators.map(collab => collab.id);
+          await sendCollaborationInvitations(savedTask.id, collaboratorIds);
+          alert(`Приглашения отправлены ${updatedTask.collaborators.length} участникам`);
+        } catch (error) {
+          console.error('Ошибка отправки приглашений:', error);
+          alert('Задача создана, но не удалось отправить приглашения: ' + error.message);
+        }
       }
 
       setIsModalVisible(false);
     } catch (error) {
       console.error("Ошибка при сохранении задачи:", error);
+      alert("Ошибка при сохранении задачи: " + error.message);
     }
   };
 
@@ -433,38 +489,261 @@ const Tasks = () => {
           const typeB = String(b.type || "");
           return typeA.localeCompare(typeB);
         });
+      case "reward_high":
+        return [...tasksToSort].sort((a, b) => {
+          const rewardA = (a.reward_gold || 0) + (a.reward_xp || 0);
+          const rewardB = (b.reward_gold || 0) + (b.reward_xp || 0);
+          return rewardB - rewardA;
+        });
+      case "reward_low":
+        return [...tasksToSort].sort((a, b) => {
+          const rewardA = (a.reward_gold || 0) + (a.reward_xp || 0);
+          const rewardB = (b.reward_gold || 0) + (b.reward_xp || 0);
+          return rewardA - rewardB;
+        });
       default:
         return tasksToSort;
     }
   };
 
-  const filteredTasks = sortTasks(tasks.filter((task) =>
+  const handleTaskUpdateWithCollaboration = async (updatedTask) => {
+    if (updatedTask.collaborators && updatedTask.collaborators.length > 0) {
+      // Если есть коллабораторы, отправляем запрос на подтверждение
+      setPendingTask(updatedTask);
+      setPendingChanges({
+        title: updatedTask.title,
+        description: updatedTask.description,
+        difficulty: difficultyLabels[updatedTask.difficulty],
+      });
+      setCollaborationModalVisible(true);
+
+      // Отправляем уведомления коллабораторам
+      await sendCollaborationNotifications(updatedTask);
+    } else {
+      // Если нет коллабораторов, сохраняем сразу
+      handleSave(updatedTask);
+    }
+  };
+
+  const removeCollaborator = async (taskId, collaboratorId) => {
+    try {
+      const { access } = await getToken();
+      const response = await fetch(
+        `${API_BASE}/api/tasks/${taskId}/remove-collaborator/${collaboratorId}/`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${access}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to remove collaborator');
+      }
+
+      // Обновляем задачи после удаления
+      fetchUserTasksAndBalance();
+    } catch (error) {
+      console.error('Error removing collaborator:', error);
+      alert(`Ошибка при удалении участника: ${error.message}`);
+    }
+  };
+
+  const sendCollaborationInvitations = async (taskId, collaboratorIds) => {
+    try {
+      const { access } = await getToken();
+
+      const response = await fetch(`${API_BASE}/api/collaboration-invitations/send-invitation/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access}`
+        },
+        body: JSON.stringify({
+          task_id: taskId,
+          collaborator_ids: collaboratorIds
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Ошибка отправки приглашений');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Ошибка отправки приглашений:', error);
+      throw error;
+    }
+  };
+
+  // Функция для обработки ответов коллабораторов
+  const handleCollaborationResponse = async (response) => {
+    if (response === 'accept') {
+      // Сохраняем изменения
+      await handleSave(pendingTask);
+    }
+    setCollaborationModalVisible(false);
+    setPendingTask(null);
+    setPendingChanges(null);
+  };
+
+  const filterTasks = (tasksToFilter) => {
+    if (!searchQuery) return tasksToFilter;
+
+    const query = searchQuery.toLowerCase();
+    return tasksToFilter.filter(task =>
+      task.title.toLowerCase().includes(query) ||
+      (task.description && task.description.toLowerCase().includes(query)) ||
+      (task.type && task.type.toLowerCase().includes(query))
+    );
+  };
+
+  const filteredTasks = filterTasks(sortTasks(tasks.filter((task) =>
     activeTab === "active" ? !task.is_completed : task.is_completed
-  ));
+  )));
+
+  const toggleSearch = () => {
+    if (showSearch) {
+      setSearchQuery("");
+    }
+    setShowSearch(!showSearch);
+  };
+
+  const toggleStats = () => {
+    setShowStats(!showStats);
+  };
+
+  const sendCollaborationNotifications = async (updatedTask) => {
+    try {
+      const { access } = await getToken();
+
+      const collaborationCheck = await fetch(`${API_BASE}/api/check-collaboration/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${access}`
+        },
+        body: JSON.stringify({
+          task_id: updatedTask.id,
+          collaborators: updatedTask.collaborators
+        })
+      });
+
+      if (!collaborationCheck.ok) {
+        throw new Error('Ошибка проверки коллаборации');
+      }
+
+      // Отправляем уведомления если проверка прошла успешно
+      await Promise.all(
+        updatedTask.collaborators.map(async (collaborator) => {
+          await fetch(`${API_BASE}/api/send-collaboration-notification/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${access}`
+            },
+            body: JSON.stringify({
+              task_id: updatedTask.id,
+              collaborator_id: collaborator.id
+            })
+          });
+        })
+      );
+    } catch (error) {
+      console.error('Ошибка отправки уведомлений:', error);
+    }
+  };
 
   return (
-    <LinearGradient colors={["#4169d1", "#9ba7be"]} style={styles.gradient}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+    <LinearGradient colors={["#0f0c29", "#302b63", "#24243e"]} style={styles.gradient}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <CollaborationNotifications />
         <View style={styles.container}>
+          {/* ЗАГОЛОВОК - ИСПРАВЛЕННАЯ ВЕРСИЯ */}
           <View style={styles.header}>
-            <View style={styles.titleRow}>
-              <Ionicons name="checkmark-done-circle" size={50} color="#fff" />
-              <Text style={styles.title}>Мои Задачи</Text>
+            <View style={styles.titleContainer}>
+              <View style={styles.titleRow}>
+                <Ionicons name="checkmark-done-circle" size={36} color="#fff" />
+                <Text style={styles.title}>Мои Задачи</Text>
+              </View>
+              <Text style={styles.subtitle}>
+                {activeTab === "active"
+                  ? `Активные задачи (${stats.active})`
+                  : `Выполненные задачи (${stats.completed})`
+                }
+              </Text>
             </View>
-            <View style={styles.statusContainer}>
+
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={[styles.headerButton, showSearch && styles.headerButtonActive]}
+                onPress={toggleSearch}
+              >
+                <Ionicons
+                  name={showSearch ? "close" : "search"}
+                  size={22}
+                  color={showSearch ? "#4169d1" : "#fff"}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.headerButton, showStats && styles.headerButtonActive]}
+                onPress={toggleStats}
+              >
+                <Ionicons
+                  name="stats-chart"
+                  size={22}
+                  color={showStats ? "#4169d1" : "#fff"}
+                />
+              </TouchableOpacity>
+
               {Dimensions.get("window").width >= 764 && (
-                <View style={styles.statusContainer}>
-                  <RankDisplay
-                    xp={characterData.xp}
-                    money={characterData.gold}
-                    rank={characterData.rank}
-                    nextRank={characterData.next_rank}
-                  />
-                </View>
+                <RankDisplay
+                  xp={characterData.xp}
+                  money={characterData.gold}
+                  rank={characterData.rank}
+                  nextRank={characterData.next_rank}
+                />
               )}
             </View>
           </View>
 
+
+          {/* СТАТИСТИКА - ИСПРАВЛЕННАЯ ВЕРСИЯ */}
+          {showStats && (
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>{stats.total}</Text>
+                <Text style={styles.statLabel}>Всего задач</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, styles.statActive]}>{stats.active}</Text>
+                <Text style={styles.statLabel}>Активных</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, styles.statCompleted]}>{stats.completed}</Text>
+                <Text style={styles.statLabel}>Выполнено</Text>
+              </View>
+              <View style={styles.statItem}>
+                <View style={styles.progressCircle}>
+                  <Text style={styles.progressText}>
+                    {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
+                  </Text>
+                </View>
+                <Text style={styles.statLabel}>Прогресс</Text>
+              </View>
+            </View>
+          )}
+
+          {/* РАНГ ДЛЯ МОБИЛЬНЫХ */}
           {Dimensions.get("window").width < 764 && (
             <View style={styles.statusContainerCompact}>
               <RankDisplay
@@ -476,6 +755,7 @@ const Tasks = () => {
             </View>
           )}
 
+          {/* ПЕРЕКЛЮЧАТЕЛЬ АКТИВНЫЕ/ВЫПОЛНЕННЫЕ - ИСПРАВЛЕННАЯ ВЕРСИЯ */}
           <View style={styles.tabContainer}>
             <View style={styles.tabsWrapper}>
               <View
@@ -486,7 +766,7 @@ const Tasks = () => {
               />
               <TouchableOpacity
                 onPress={() => setActiveTab("active")}
-                style={styles.tab}
+                style={[styles.tab, activeTab === "active" && styles.tabActive]}
               >
                 <Ionicons
                   name="list-outline"
@@ -495,15 +775,15 @@ const Tasks = () => {
                 />
                 <Text style={[
                   styles.tabText,
-                  activeTab === "active" && styles.activeTabText
+                  activeTab === "active" && styles.tabTextActive
                 ]}>
-                  Активные
+                  Активные ({stats.active})
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => setActiveTab("completed")}
-                style={styles.tab}
+                style={[styles.tab, activeTab === "completed" && styles.tabActive]}
               >
                 <Ionicons
                   name="checkmark-done-outline"
@@ -512,61 +792,70 @@ const Tasks = () => {
                 />
                 <Text style={[
                   styles.tabText,
-                  activeTab === "completed" && styles.activeTabText
+                  activeTab === "completed" && styles.tabTextActive
                 ]}>
-                  Выполненные
+                  Выполненные ({stats.completed})
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {activeTab === "active" && (
-            <View style={styles.actionsRow}>
-              <View style={styles.createButtonWrapper}>
-                <TouchableOpacity style={styles.createButton} onPress={handleCreateNew}>
-                  <LinearGradient
-                    colors={["#6a11cb", "#2575fc"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.gradientButton}
-                  >
-                    <Ionicons name="add" size={26} color="#fff" />
-                  </LinearGradient>
-                </TouchableOpacity>
-                <Text style={styles.createButtonText}>Добавить</Text>
-              </View>
-
-              <View style={styles.sortContainer}>
-                <TouchableOpacity
-                  style={styles.sortButton}
-                  onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+          <View style={styles.actionsRow}>
+            <View style={styles.createButtonWrapper}>
+              <TouchableOpacity style={styles.createButton} onPress={handleCreateNew}>
+                <LinearGradient
+                  colors={["#6a11cb", "#2575fc"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.gradientButton}
                 >
-                  <Ionicons name="filter" size={20} color="#fff" />
-                  <Text style={styles.sortButtonText}>Сортировка</Text>
-                  <Ionicons
-                    name={isDropdownOpen ? "chevron-up" : "chevron-down"}
-                    size={16}
-                    color="#fff"
-                  />
-                </TouchableOpacity>
-                {isDropdownOpen && (
-                  <View style={{ marginTop: 5, maxWidth: isCompact ? '100%' : 300 }}>
-                    <SortModal
-                      visible={isDropdownOpen}
-                      options={sortOptions}
-                      selectedValue={sortBy}
-                      onSelect={handleSortChange}
-                      onClose={() => setIsDropdownOpen(false)}
-                    />
-                  </View>
-                )}
-              </View>
+                  <Ionicons name="add" size={26} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+              <Text style={styles.createButtonText}>Добавить</Text>
             </View>
-          )}
+
+            <View style={styles.sortContainer}>
+              <TouchableOpacity
+                style={styles.sortButton}
+                onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+              >
+                <Ionicons name="filter" size={20} color="#fff" />
+                <Text style={styles.sortButtonText}>Сортировка</Text>
+                <Ionicons
+                  name={isDropdownOpen ? "chevron-up" : "chevron-down"}
+                  size={16}
+                  color="#fff"
+                />
+              </TouchableOpacity>
+              {isDropdownOpen && (
+                <View style={{ marginTop: 5, maxWidth: isCompact ? '100%' : 300 }}>
+                  <SortModal
+                    visible={isDropdownOpen}
+                    options={sortOptions}
+                    selectedValue={sortBy}
+                    onSelect={handleSortChange}
+                    onClose={() => setIsDropdownOpen(false)}
+                  />
+                </View>
+              )}
+            </View>
+          </View>
 
           {filteredTasks.length === 0 ? (
             <View style={styles.noTasksContainer}>
-              <Text style={styles.noTasksText}>Нет задач в этой категории</Text>
+              <Ionicons name="document-text-outline" size={60} color="rgba(255,255,255,0.3)" />
+              <Text style={styles.noTasksText}>
+                {searchQuery ? "Не найдено задач по вашему запросу" : "Нет задач в этой категории"}
+              </Text>
+              {searchQuery && (
+                <TouchableOpacity
+                  style={styles.clearSearchButton}
+                  onPress={() => setSearchQuery("")}
+                >
+                  <Text style={styles.clearSearchText}>Очистить поиск</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <View style={styles.tasksOuterWrapper}>
@@ -591,6 +880,11 @@ const Tasks = () => {
                     xp={task.reward_xp || 0}
                     isCompact={isCompact}
                     isDeleting={deletingTasks[task.id]}
+                    createdAt={task.created_at}
+                    collaborators={task.collaborators || []}
+                    ownerId={task.user}  // Передаем ID владельца (число)
+                    ownerData={task.owner}  // Передаем данные владельца (объект)
+                    currentUserId={characterData.user?.id}  // ID текущего пользователя
                   />
                 ))}
               </View>
@@ -603,6 +897,11 @@ const Tasks = () => {
             onSave={handleSave}
             onCancel={handleCancel}
             isCompact={isCompact}
+            onRemoveCollaborator={(collaboratorId) => {
+              if (editingTask?.id) {
+                removeCollaborator(editingTask.id, collaboratorId);
+              }
+            }}
           />
 
           <ConfirmDeleteModal
@@ -619,6 +918,15 @@ const Tasks = () => {
             oldRank={oldRank}
             newRank={newRank}
             onComplete={() => setShowRankUp(false)}
+          />
+
+          <CollaborationConfirmModal
+            visible={collaborationModalVisible}
+            task={pendingTask}
+            changes={pendingChanges}
+            onAccept={() => handleCollaborationResponse('accept')}
+            onReject={() => handleCollaborationResponse('reject')}
+            onCancel={() => setCollaborationModalVisible(false)}
           />
 
         </View>
@@ -640,21 +948,110 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  titleContainer: {
+    flex: 1,
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
+    marginBottom: 5,
   },
   title: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: "800",
     color: "#ffffff",
     textShadowColor: "rgba(0,0,0,0.3)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "rgba(255,255,255,0.7)",
+    marginLeft: 48,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 8,
+  },
+  headerButton: {
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  headerButtonActive: {
+    backgroundColor: "rgba(65, 105, 209, 0.3)",
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    marginBottom: 20,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 16,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 20,
+  },
+  statItem: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statNumber: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  statActive: {
+    color: "#4CAF50",
+  },
+  statCompleted: {
+    color: "#2196F3",
+  },
+  progressCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 5,
+  },
+  progressText: {
+    color: "#FFD700",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  statLabel: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 12,
+    textAlign: "center",
+  },
+  statusContainerCompact: {
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 20
   },
   actionsRow: {
     flexDirection: "row",
@@ -671,40 +1068,6 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontWeight: "600",
     fontSize: 22,
-  },
-  tasksWrapper: {
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 15,
-  },
-  tasksOuterWrapper: { alignSelf: "center" },
-  statusContainer: { alignItems: "center", gap: 8, marginTop: 10 },
-  statusContainerCompact: { alignItems: "center", gap: 8, marginTop: 10, marginBottom: 20 },
-  statusItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  statusText: {
-    color: "#FFD700",
-    marginLeft: 6,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  noTasksContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    flex: 1,
-    marginTop: 100,
-  },
-  noTasksText: {
-    fontSize: 28,
-    fontWeight: "600",
-    color: "#ffffff",
-    marginBottom: 20,
   },
   createButton: {
     width: 50,
@@ -725,52 +1088,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 25,
   },
-  tabContainer: {
-    marginBottom: 25,
-    paddingHorizontal: 20,
-  },
-  tabsWrapper: {
-    flexDirection: "row",
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-    borderRadius: 12,
-    padding: 4,
-    position: "relative",
-    overflow: "hidden",
-  },
-  activeTabIndicator: {
-    position: "absolute",
-    top: 4,
-    left: 4,
-    width: "50%",
-    height: "85%",
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    borderRadius: 8,
-    transitionProperty: "left",
-    transitionDuration: "0.3s",
-    transitionTimingFunction: "ease-out",
-  },
-  activeTabIndicatorRight: {
-    left: "50%",
-  },
-  tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    zIndex: 1,
-  },
-  tabText: {
-    color: "rgba(255,255,255,0.7)",
-    fontWeight: "600",
-    fontSize: 16,
-    marginLeft: 8,
-  },
-  activeTabText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
   sortContainer: {
     position: "relative",
     zIndex: 10,
@@ -789,29 +1106,83 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 16,
   },
-  rankContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
+  tabContainer: {
+    marginBottom: 25,
   },
-  rankImage: {
-    width: 40,
-    height: 40,
-    marginRight: 10,
+  tabsWrapper: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 12,
+    padding: 4,
+    position: "relative",
+    overflow: "hidden",
   },
-  rankText: {
-    color: '#FFD700',
-    fontSize: 18,
-    fontWeight: 'bold',
+  activeTabIndicator: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    width: "50%",
+    height: "85%",
+    backgroundColor: "rgba(65, 105, 209, 0.5)",
+    borderRadius: 8,
   },
-  progressContainer: {
-    marginBottom: 10,
-    alignItems: 'center',
+  activeTabIndicatorRight: {
+    left: "50%",
   },
-  progressText: {
-    color: '#FFF',
-    fontSize: 12,
-    marginTop: 5,
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    zIndex: 1,
+  },
+  tabActive: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 8,
+  },
+  tabText: {
+    color: "rgba(255,255,255,0.7)",
+    fontWeight: "600",
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  tabTextActive: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  tasksWrapper: {
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 15,
+  },
+  tasksOuterWrapper: {
+    alignSelf: "center"
+  },
+  noTasksContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    flex: 1,
+    marginTop: 100,
+    padding: 20,
+  },
+  noTasksText: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.7)",
+    marginTop: 15,
+    textAlign: "center",
+  },
+  clearSearchButton: {
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 10,
+  },
+  clearSearchText: {
+    color: "#fff",
+    fontSize: 14,
   },
 });
 
@@ -823,12 +1194,21 @@ const modalStyles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1e1e2e',
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 15,
     width: '80%',
     maxWidth: 320,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  title: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
   },
   option: {
     paddingVertical: 12,
@@ -840,11 +1220,11 @@ const modalStyles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: 'rgba(65, 105, 209, 0.2)',
   },
   optionText: {
     fontSize: 16,
-    color: '#333',
+    color: '#fff',
   },
   selectedOptionText: {
     fontWeight: '600',

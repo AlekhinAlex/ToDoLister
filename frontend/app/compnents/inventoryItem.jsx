@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     itemContainer: {
         width: "48%",
         marginVertical: 10,
-        backgroundColor: "#ffffff",
+        backgroundColor: "rgba(255, 255, 255, .1)",
         borderRadius: 14,
         overflow: "hidden",
         shadowColor: "#000",
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     imageWrapper: {
         width: "100%",
         height: 140,
-        backgroundColor: "#f0f0f0",
+        backgroundColor: "rgba(255, 255, 255, 0.1)",
         justifyContent: "center",
         alignItems: "center",
         position: "relative",
@@ -92,12 +92,12 @@ const styles = StyleSheet.create({
     itemName: {
         fontSize: 17,
         fontWeight: "700",
-        color: "#2d3436",
+        color: "white",
         marginBottom: 4,
     },
     itemStatus: {
         fontSize: 13,
-        color: "#636e72",
+        color: "white   ",
         marginBottom: 12,
     },
     equipButton: {

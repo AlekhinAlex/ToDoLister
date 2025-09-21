@@ -6,7 +6,9 @@ from django.conf.urls.static import static
 from django.urls import path
 from .views import (
     RegisterViewSet, UserViewSet, TaskViewSet, CharacterViewSet,
-    CustomTokenObtainPairView, LogoutViewSet, ShopViewSet, RankViewSet
+    CustomTokenObtainPairView, LogoutViewSet, ShopViewSet, RankViewSet,
+    UserSearchView, FriendRequestViewSet, FriendshipViewSet, TaskCollaboratorViewSet,
+    CollaborationCheckView, CollaborationInvitationViewSet, CollaborationTaskViewSet,
 )
 
 router = DefaultRouter()
@@ -17,7 +19,13 @@ router.register(r'logout', LogoutViewSet, basename='logout')
 router.register(r'character', CharacterViewSet, basename='character')
 router.register(r'shop', ShopViewSet, basename='shop')
 router.register(r'ranks', RankViewSet, basename='rank')
-
+router.register(r'check-collaboration', CollaborationCheckView, basename='checkcollaboration')
+router.register(r'user-search', UserSearchView, basename='usersearch')
+router.register(r'friend-requests', FriendRequestViewSet, basename='friendrequest')
+router.register(r'friendships', FriendshipViewSet, basename='friendship')
+router.register(r'task-collaborators', TaskCollaboratorViewSet, basename='taskcollaborator')
+router.register(r'collaboration-invitations', CollaborationInvitationViewSet, basename='collaborationinvitation')
+router.register(r'collaboration-tasks', CollaborationTaskViewSet, basename='collaborationtask')
 
 urlpatterns = [
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),

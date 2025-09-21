@@ -1,26 +1,80 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import BaseUserManager
 from django.conf import settings
 from django.db.models import Q
 
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("The Email field must be set")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
+        return self.create_user(email, password, **extra_fields)
+
 class User(AbstractUser):
     email = models.EmailField(unique=True)
-    # Переопределяем поле username, чтобы сделать его необязательным
     username = models.CharField(max_length=150, blank=True)
-    # Указываем, что аутентификация идет по email
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = []  # Убираем email из REQUIRED_FIELDS
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)# Путь к папке для аватарок
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = []
+
+    avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
     gold = models.PositiveIntegerField(default=0)
     xp = models.PositiveIntegerField(default=0)
 
+    objects = CustomUserManager()
+
     class Meta:
-        db_table = 'auth_user'
+        db_table = "auth_user"
+
+    def change_password(self, current_password, new_password):
+        """
+        Изменение пароля с проверкой текущего
+        """
+        if not self.check_password(current_password):
+            raise ValidationError("Текущий пароль неверен")
+        
+        if len(new_password) < 6:
+            raise ValidationError("Пароль должен содержать минимум 6 символов")
+        
+        self.set_password(new_password)
+        self.save()
+
+    def update_profile(self, name=None, email=None):
+        """
+        Обновление профиля пользователя
+        """
+        if name is not None:
+            self.username   = name
+            # или self.username = name, в зависимости от вашей логики
+            
+        if email is not None:
+            if User.objects.filter(email=email).exclude(id=self.id).exists():
+                raise ValidationError("Email уже используется другим пользователем")
+            self.email = email
+            
+        self.save()
 
     @property
     def current_rank(self):
         from .models import Rank  # Avoid circular import
         return Rank.objects.filter(required_xp__lte=self.xp).order_by('-required_xp').first()
+    
 
 class Task(models.Model):
     DIFFICULTY_CHOICES = [
@@ -68,6 +122,22 @@ class Task(models.Model):
     def delete(self, *args, **kwargs):
         # Handle deletion of the task
         super().delete(*args, **kwargs)
+
+    @property
+    def collaboration_status_display(self):
+        return self.get_collaboration_status_display()
+    
+    def get_collaborators(self):
+        return self.collaborators.filter(accepted=True)
+    
+        collaboration_type = models.PositiveSmallIntegerField(
+        choices=[(1, 'Любой может завершить'), (2, 'Все должны завершить')],
+        default=1
+    )
+    collaboration_status = models.PositiveSmallIntegerField(
+        choices=[(1, 'Ожидание'), (2, 'Принято'), (3, 'Отклонено')],
+        default=1
+    )
 
         
 
@@ -132,3 +202,73 @@ class Rank(models.Model):
 
     def __str__(self):
         return self.name
+
+#! FRIENDS SECTION ========
+class FriendRequest(models.Model):
+    from_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="sent_friend_requests"
+    )
+    to_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="received_friend_requests"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    accepted = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("from_user", "to_user")
+
+    def __str__(self):
+        return f"{self.from_user.email} -> {self.to_user.email} ({'accepted' if self.accepted else 'pending'})"
+
+
+class Friendship(models.Model):
+    user1 = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="friendship_user1"
+    )
+    user2 = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="friendship_user2"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user1", "user2")
+
+    def __str__(self):
+        return f"Friendship: {self.user1.email} - {self.user2.email}"
+
+    @staticmethod
+    def befriend(user1, user2):
+        # гарантируем, что user1.id < user2.id (чтобы не дублировать пары)
+        if user1.id > user2.id:
+            user1, user2 = user2, user1
+        return Friendship.objects.get_or_create(user1=user1, user2=user2)
+    
+    @classmethod
+    def are_friends(cls, user1, user2):
+        return cls.objects.filter(
+            (Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1))
+        ).exists()
+    
+class TaskCollaborator(models.Model):
+    task = models.ForeignKey("Task", on_delete=models.CASCADE, related_name="collaborators")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="invited_collaborators")
+    accepted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("task", "user")
+
+    def __str__(self):
+        return f"{self.user.email} on {self.task.id} ({'accepted' if self.accepted else 'pending'})"
+
+    
+#!  END FRIENDS SECTION ========

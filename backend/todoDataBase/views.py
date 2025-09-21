@@ -6,9 +6,15 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.exceptions import ValidationError, APIException
+from django.core.exceptions import ValidationError
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from .models import User, Task, Shop, Inventory, Rank
+from .models import FriendRequest, Friendship, TaskCollaborator
+from .serializers import FriendRequestSerializer, FriendshipSerializer, TaskCollaboratorSerializer
 from .serializers import (
     UserSerializer, RegisterSerializer, TaskSerializer,
     ItemSerializer, UserItemSerializer, CharacterSerializer,
@@ -207,7 +213,10 @@ class TaskViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Task.objects.filter(user=self.request.user)
+        return Task.objects.select_related('user').prefetch_related('collaborators__user').filter(
+            Q(user=self.request.user) | 
+            Q(collaborators__user=self.request.user, collaborators__accepted=True)
+        ).distinct()
 
     def perform_create(self, serializer):
         # Automatically set the user and calculate rewards
@@ -216,23 +225,64 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
         task = self.get_object()
-        if not task.is_completed:
+        
+        # Проверяем, является ли пользователь участником задачи
+        if not (task.user == request.user or 
+                task.collaborators.filter(user=request.user, accepted=True).exists()):
+            return Response({"detail": "Вы не участвуете в этой задаче"}, status=403)
+        
+        # Проверяем условия коллаборации
+        if task.collaboration_type == 2:  # Все должны завершить
+            # Помечаем, что этот пользователь завершил
+            collaborator = task.collaborators.get(user=request.user, accepted=True)
+            collaborator.completed = True
+            collaborator.save()
+            
+            # Проверяем, все ли завершили (включая владельца)
+            all_collaborators_completed = not task.collaborators.filter(accepted=True, completed=False).exists()
+            owner_completed = task.is_completed if task.user != request.user else True
+            
+            if all_collaborators_completed and owner_completed:
+                task.is_completed = True
+                # Начисляем награду всем участникам
+                participants = [task.user] + list(task.collaborators.filter(accepted=True).values_list('user', flat=True))
+                for user_id in participants:
+                    user = User.objects.get(id=user_id)
+                    user.xp += task.reward_xp
+                    user.gold += task.reward_gold
+                    user.save()
+        else:  # Любой может завершить
             task.is_completed = True
-            task.save()
-            user = request.user
-            user.xp += task.reward_xp
-            user.gold += task.reward_gold
-            user.save()
-
-            return Response({
-                'status': 'Task completed.',
-                'difficulty': task.get_difficulty_display(),
-                'reward_xp': task.reward_xp,
-                'reward_gold': task.reward_gold,
-                'user': UserSerializer(user).data,
-            })
-        else:
-            return Response({'status': 'Task already completed.'}, status=400)
+            # Начисляем награду всем участникам
+            participants = [task.user] + list(task.collaborators.filter(accepted=True).values_list('user', flat=True))
+            for user_id in participants:
+                user = User.objects.get(id=user_id)
+                user.xp += task.reward_xp
+                user.gold += task.reward_gold
+                user.save()
+        
+        task.save()
+        return Response({'status': 'Task completed.'})
+    
+    @action(detail=True, methods=['delete'], url_path='remove-collaborator/(?P<collaborator_id>[^/.]+)')
+    def remove_collaborator(self, request, pk=None, collaborator_id=None):
+        task = self.get_object()
+        
+        # Проверяем права доступа
+        if task.user != request.user:
+            return Response({"detail": "Only the owner can remove collaborators."}, status=403)
+        
+        try:
+            collaborator = TaskCollaborator.objects.get(
+                task=task, 
+                user_id=collaborator_id
+            )
+            collaborator.delete()
+            return Response({"detail": "Collaborator removed successfully."}, status=200)
+        except TaskCollaborator.DoesNotExist:
+            return Response({"detail": "Collaborator not found."}, status=404)
+        except Exception as e:
+            return Response({"detail": f"Error removing collaborator: {str(e)}"}, status=500)
 
     @action(detail=True, methods=['post'])
     def uncomplete(self, request, pk=None):
@@ -259,6 +309,9 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='delete')
     def delete(self, request, pk=None):
         task = self.get_object()
+        if task.user != request.user:
+            return Response({"detail": "Only the owner can delete the task."}, status=403)
+        
         if task.is_completed:
             task.delete()
             return Response({'status': 'Task deleted.'}, status=204)
@@ -279,7 +332,6 @@ class TaskViewSet(viewsets.ModelViewSet):
         
 
 
-# Add TokenObtainPairView and TokenRefreshView for login functionality
 class LoginViewSet(viewsets.ViewSet):
     permission_classes = [permissions.AllowAny]
 
@@ -327,6 +379,55 @@ class UserViewSet(viewsets.ViewSet):
             "detail": "Avatar updated successfully!",
             "avatar_url": request.build_absolute_uri(user.avatar.url)
         })
+    
+    
+    @action(detail=False, methods=['post'], url_path='change-password')
+    def change_password(self, request):
+        """
+        Изменение пароля пользователя
+        """
+        serializer = ChangePasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            request.user.change_password(
+                serializer.validated_data['current_password'],
+                serializer.validated_data['new_password']
+            )
+            return Response({"detail": "Пароль успешно изменен"}, status=status.HTTP_200_OK)
+            
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "Ошибка при изменении пароля"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['patch'], url_path='update-profile')
+    def update_profile(self, request):
+        """
+        Обновление профиля пользователя (имя и email)
+        """
+        serializer = UpdateProfileSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            request.user.update_profile(
+                name=serializer.validated_data.get('name'),
+                email=serializer.validated_data.get('email')
+            )
+            
+            # Возвращаем обновленные данные пользователя
+            user_serializer = UserSerializer(request.user)
+            return Response({
+                "detail": "Профиль успешно обновлен",
+                "user": user_serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "Ошибка при обновлении профиля"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class LogoutViewSet(viewsets.ViewSet):
@@ -347,3 +448,317 @@ class LogoutViewSet(viewsets.ViewSet):
 class RankViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Rank.objects.all()
     serializer_class = RankSerializer
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, min_length=6)
+
+class UpdateProfileSerializer(serializers.Serializer):
+    name = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False)
+
+
+    @action(detail=False, methods=['post'], url_path='change-password')
+    def change_password(self, request):
+        """
+        Изменение пароля пользователя
+        """
+        serializer = ChangePasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            request.user.change_password(
+                serializer.validated_data['current_password'],
+                serializer.validated_data['new_password']
+            )
+            return Response({"detail": "Пароль успешно изменен"}, status=status.HTTP_200_OK)
+            
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "Ошибка при изменении пароля"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['patch'], url_path='update-profile')
+    def update_profile(self, request):
+        """
+        Обновление профиля пользователя (имя и email)
+        """
+        serializer = UpdateProfileSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            request.user.update_profile(
+                name=serializer.validated_data.get('name'),
+                email=serializer.validated_data.get('email')
+            )
+            
+            # Возвращаем обновленные данные пользователя
+            user_serializer = UserSerializer(request.user)
+            return Response({
+                "detail": "Профиль успешно обновлен",
+                "user": user_serializer.data
+            }, status=status.HTTP_200_OK)
+            
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": "Ошибка при обновлении профиля"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+#! FRIENDS SECTION
+
+class UserSearchView(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        query = request.query_params.get("q", "")
+        users = User.objects.filter(
+            Q(username__icontains=query) | Q(email__icontains=query)
+        ).exclude(id=request.user.id)
+        serializer = UserSerializer(users, many=True, context={'request': request})
+        return Response(serializer.data)
+
+
+class FriendRequestViewSet(viewsets.ModelViewSet):
+    serializer_class = FriendRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Получаем параметр для фильтрации (только входящие или все)
+        request_type = self.request.query_params.get('type', 'all')
+        
+        if request_type == 'sent':
+            # Только отправленные запросы
+            return FriendRequest.objects.filter(from_user=self.request.user)
+        elif request_type == 'received':
+            # Только полученные запросы
+            return FriendRequest.objects.filter(to_user=self.request.user)
+        else:
+            # Все запросы (отправленные и полученные) - по умолчанию
+            return FriendRequest.objects.filter(
+                Q(from_user=self.request.user) | Q(to_user=self.request.user)
+            )
+
+    def perform_create(self, serializer):
+        to_user_id = self.request.data.get("to_user")
+        if not to_user_id:
+            raise ValidationError({"to_user": "Обязательное поле"})
+        if FriendRequest.objects.filter(from_user=self.request.user, to_user_id=to_user_id).exists():
+            raise ValidationError({"detail": "Запрос уже отправлен"})
+        serializer.save(from_user=self.request.user, to_user_id=to_user_id)
+
+    @action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        friend_request = self.get_object()
+        if friend_request.to_user != request.user:
+            return Response({"detail": "Нельзя принять чужой запрос"}, status=403)
+        
+        # Создаем дружбу
+        Friendship.befriend(friend_request.from_user, friend_request.to_user)
+        
+        # Удаляем запрос после принятия
+        friend_request.delete()
+        
+        return Response({"status": "accepted"})
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        friend_request = self.get_object()
+        if friend_request.to_user != request.user:
+            return Response({"detail": "Нельзя отклонить чужой запрос"}, status=403)
+        friend_request.delete()
+        return Response({"status": "rejected"})
+
+
+
+class FriendshipViewSet(viewsets.ModelViewSet): 
+    serializer_class = FriendshipSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Friendship.objects.filter(Q(user1=self.request.user) | Q(user2=self.request.user))
+    
+    def destroy(self, request, *args, **kwargs):
+        try:
+            friendship = self.get_object()
+            
+            # Проверяем, что пользователь является участником дружбы
+            if request.user not in [friendship.user1, friendship.user2]:
+                return Response({"detail": "Нельзя удалить чужую дружбу"}, status=403)
+            
+            friendship.delete()
+            return Response({"status": "deleted"})
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+
+class TaskCollaboratorViewSet(viewsets.ModelViewSet):
+    serializer_class = TaskCollaboratorSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TaskCollaborator.objects.filter(
+            Q(user=self.request.user) | Q(invited_by=self.request.user)
+        )
+
+    def perform_create(self, serializer):
+        user_id = self.request.data.get("user")
+        serializer.save(invited_by=self.request.user, user_id=user_id)
+
+    @action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        collaborator = self.get_object()
+        if collaborator.user != request.user:
+            return Response({"detail": "Вы не можете принять чужое приглашение"}, status=403)
+        collaborator.accepted = True
+        collaborator.save()
+        return Response({"status": "accepted"})
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        collaborator = self.get_object()
+        if collaborator.user != request.user:
+            return Response({"detail": "Вы не можете отклонить чужое приглашение"}, status=403)
+        collaborator.delete()
+        return Response({"status": "rejected"})
+
+class CollaborationCheckView(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    
+    @action(detail=False, methods=['post'], url_path='check-collaboration')
+    def check_collaboration(self, request):
+        try:
+            collaborator_ids = request.data.get('collaborators', [])
+            task_id = request.data.get('task_id')
+            
+            # Проверяем, что все коллабораторы являются друзьями
+            for collaborator_id in collaborator_ids:
+                collaborator = User.objects.get(id=collaborator_id)
+                
+                if not Friendship.are_friends(request.user, collaborator):
+                    return Response({
+                        "detail": f"Пользователь {collaborator.email} не является вашим другом",
+                        "user_id": collaborator_id
+                    }, status=400)
+            
+            return Response({"detail": "Все пользователи являются друзьями"}, status=200)
+            
+        except User.DoesNotExist:
+            return Response({"detail": "Пользователь не найден"}, status=404)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+#! END OF FRIENDS SECTION
+
+class CollaborationInvitationViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['post'], url_path='send-invitation')
+    def send_invitation(self, request):
+        try:
+            task_id = request.data.get('task_id')
+            collaborator_ids = request.data.get('collaborator_ids', [])
+            
+            task = Task.objects.get(id=task_id, user=request.user)
+            
+            created_count = 0
+            already_exists_count = 0
+            
+            for collaborator_id in collaborator_ids:
+                collaborator = User.objects.get(id=collaborator_id)
+                if not Friendship.are_friends(request.user, collaborator):
+                    return Response({
+                        "detail": f"Пользователь {collaborator.email} не является вашим другом"
+                    }, status=400)
+                
+                # Проверяем, не было ли уже приглашения
+                if TaskCollaborator.objects.filter(task=task, user=collaborator).exists():
+                    already_exists_count += 1
+                    continue
+                
+                # Создаем приглашение
+                TaskCollaborator.objects.create(
+                    task=task,
+                    user=collaborator,
+                    invited_by=request.user,
+                    accepted=False
+                )
+                created_count += 1
+            
+            task.collaboration_status = 1  # Ожидание
+            task.save()
+            
+            message = f"Приглашения отправлены. Создано: {created_count}, уже существовало: {already_exists_count}"
+            return Response({"detail": message}, status=200)
+            
+        except Task.DoesNotExist:
+            return Response({"detail": "Задача не найдена"}, status=404)
+        except User.DoesNotExist:
+            return Response({"detail": "Пользователь не найден"}, status=404)
+
+
+    @action(detail=False, methods=['get'], url_path='pending-invitations')
+    def pending_invitations(self, request):
+        invitations = TaskCollaborator.objects.filter(
+            user=request.user,
+            accepted=False
+        )
+        serializer = TaskCollaboratorSerializer(invitations, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='respond-invitation')
+    def respond_invitation(self, request, pk=None):
+        try:
+            invitation = TaskCollaborator.objects.get(id=pk, user=request.user)
+            accept = request.data.get('accept', False)
+            
+            if accept:
+                invitation.accepted = True
+                invitation.save()
+                
+                # Проверяем, все ли приняли приглашение
+                task = invitation.task
+                pending_invitations = TaskCollaborator.objects.filter(
+                    task=task,
+                    accepted=False
+                ).count()
+                
+                if pending_invitations == 0:
+                    task.collaboration_status = 2  # Принято
+                    task.save()
+                
+                return Response({"detail": "Приглашение принято"}, status=200)
+            else:
+                invitation.delete()
+                
+                # Обновляем статус задачи
+                task = invitation.task
+                task.collaboration_status = 3  # Отклонено
+                task.save()
+                
+                return Response({"detail": "Приглашение отклонено"}, status=200)
+                
+        except TaskCollaborator.DoesNotExist:
+            return Response({"detail": "Приглашение не найдено"}, status=404)
+        
+    @action(detail=False, methods=['get'], url_path='pending-invitations')
+    def pending_invitations(self, request):
+        invitations = TaskCollaborator.objects.filter(
+            user=request.user,
+            accepted=False
+        ).select_related('task', 'invited_by')
+        serializer = TaskCollaboratorSerializer(invitations, many=True)
+        return Response(serializer.data)
+    
+class CollaborationTaskViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = TaskSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        # Задачи, где пользователь является коллаборатором
+        return Task.objects.filter(
+            collaborators__user=self.request.user,
+            collaborators__accepted=True
+        )

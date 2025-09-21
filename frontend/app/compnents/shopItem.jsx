@@ -26,11 +26,14 @@ const ShopItem = ({
   const status = getStatus();
 
   return (
-    <View style={[
-      styles.itemContainer,
-      status === "locked_by_rank" && styles.lockedByRankItem,
-      status === "locked" && styles.lockedItem
-    ]}>
+    <View
+      style={[
+        styles.itemContainer,
+        status === "locked_by_rank" && styles.lockedByRankItem,
+        status === "locked" && styles.lockedItem,
+      ]}
+    >
+      {/* Картинка */}
       <View style={styles.imageWrapper}>
         <Image source={{ uri: image }} style={styles.image} />
         {!is_available && (
@@ -43,65 +46,53 @@ const ShopItem = ({
         )}
       </View>
 
+      {/* Инфо */}
       <View style={styles.infoContainer}>
-        <View style={styles.contentWrapper}>
-          <Text style={styles.itemName}>{name}</Text>
-          <Text style={styles.itemDescription}>{description}</Text>
+        <Text style={styles.itemName}>{name}</Text>
+        <Text style={styles.itemDescription}>{description}</Text>
 
-          {status === "purchased" && (
-            <Text style={styles.purchasedText}>
-              <Ionicons name="checkmark-circle" size={20} color="green" /> Куплено
+        {status === "purchased" && (
+          <Text style={styles.purchasedText}>
+            <Ionicons name="checkmark-circle" size={20} color="#2ecc71" /> Куплено
+          </Text>
+        )}
+
+        {status === "unlocked" && (
+          <View style={styles.priceContainer}>
+            <Ionicons name="cash-outline" size={18} color="#FFD700" />
+            <Text style={styles.itemPrice}>
+              <Text style={styles.highlightedText}>{price}</Text> золота
             </Text>
-          )}
+          </View>
+        )}
 
-          {status === "unlocked" && (
-            <>
-              <View style={styles.priceContainer}>
-                <Ionicons name="cash-outline" size={18} color="#FFD700" />
-                <Text style={styles.itemPrice}>
-                  <Text style={styles.highlightedText}>{price}</Text> золота
-                </Text>
-              </View>
-            </>
-          )}
+        {status === "locked" && (
+          <View style={styles.lockedInfo}>
+            <Ionicons name="lock-closed-outline" size={18} color="#e67e22" />
+            <Text style={styles.lockedText}>Предмет заблокирован</Text>
+          </View>
+        )}
 
-          {status === "locked" && (
-            <View style={styles.lockedInfo}>
-              <Ionicons name="lock-closed-outline" size={18} color="#e67e22" />
+        {status === "locked_by_rank" && (
+          <View style={styles.lockedInfo}>
+            <Ionicons name="lock-closed-outline" size={18} color="#9b59b6" />
+            <Text style={styles.lockedText}>
+              Требуется ранг {rank_name || required_rank}
+            </Text>
+            <Text style={styles.rankProgress}>Ваш ранг: {current_rank}</Text>
+          </View>
+        )}
 
-            </View>
-          )}
-
-          {status === "locked_by_rank" && (
-            <View style={styles.lockedInfo}>
-              <Ionicons name="lock-closed-outline" size={18} color="#9b59b6" />
-              <Text style={styles.lockedText}>
-                Требуется ранг {rank_name || required_rank}
-              </Text>
-              <Text style={styles.rankProgress}>
-                Ваш ранг: {current_rank}
-              </Text>
-            </View>
-          )}
-        </View>
-
+        {/* Кнопки */}
         <View style={styles.buttonContainer}>
           {status === "unlocked" && (
-            <TouchableOpacity
-              style={styles.purchaseButton}
-              onPress={onPurchase}
-              disabled={!is_available}
-            >
+            <TouchableOpacity style={styles.purchaseButton} onPress={onPurchase}>
               <Text style={styles.purchaseButtonText}>Купить</Text>
             </TouchableOpacity>
           )}
 
           {status === "locked" && (
-            <TouchableOpacity
-              style={styles.unlockButton}
-              onPress={onUnlock}
-              disabled={!is_available}
-            >
+            <TouchableOpacity style={styles.unlockButton} onPress={onUnlock}>
               <Text style={styles.unlockButtonText}>Разблокировать</Text>
             </TouchableOpacity>
           )}
@@ -123,17 +114,15 @@ const styles = StyleSheet.create({
   itemContainer: {
     width: "48%",
     marginVertical: 10,
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 18,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6,
     borderWidth: 1,
-    borderColor: "#dfe6e9",
-    maxWidth: 300,
+    borderColor: "rgba(255,255,255,0.1)",
+    paddingBottom: 10,
+    transition: "all 0.3s ease",
+    cursor: "pointer",
+    backdropFilter: "blur(10px)", // эффект стекла для web
   },
   lockedItem: {
     opacity: 0.85,
@@ -145,54 +134,47 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     width: "100%",
-    height: 140,
-    backgroundColor: "#f0f0f0",
+    height: 150,
+    backgroundColor: "rgba(255,255,255,0.08)",
     justifyContent: "center",
     alignItems: "center",
-    position: 'relative',
+    position: "relative",
   },
   image: {
-    width: "100%",
-    height: "100%",
+    width: "90%",
+    height: "90%",
     resizeMode: "contain",
   },
   rankRequirement: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(155, 89, 182, 0.8)',
+    backgroundColor: "rgba(155, 89, 182, 0.85)",
     padding: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
   },
   rankRequirementText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 5,
   },
   infoContainer: {
     padding: 12,
     flex: 1,
-    justifyContent: 'space-between',
-  },
-  contentWrapper: {
-    flex: 1,
-  },
-  buttonContainer: {
-    marginTop: 10,
+    justifyContent: "space-between",
   },
   itemName: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
-    color: "#2d3436",
-    marginBottom: 2,
+    color: "#fff",
+    marginBottom: 4,
   },
   itemDescription: {
     fontSize: 13,
-    color: "#636e72",
+    color: "#bdc3c7",
     marginBottom: 8,
   },
   priceContainer: {
@@ -202,43 +184,46 @@ const styles = StyleSheet.create({
   },
   itemPrice: {
     fontSize: 15,
-    color: "#f1c40f",
+    color: "#FFD700",
     marginLeft: 6,
   },
   highlightedText: {
     fontWeight: "bold",
-    backgroundColor: "#fff9d6",
+    backgroundColor: "rgba(255, 215, 0, 0.2)",
     paddingHorizontal: 5,
     borderRadius: 4,
-  },
-  highlightedXP: {
-    fontWeight: "bold",
-    backgroundColor: "#ffe1bd",
-    paddingHorizontal: 5,
-    borderRadius: 4,
-    color: "#d35400",
   },
   lockedInfo: {
-    flexDirection: "column",
-    alignItems: "flex-start",
     marginBottom: 6,
   },
   lockedText: {
     fontSize: 13,
-    color: "#8e6e53",
+    color: "#ff9f43",
     marginLeft: 6,
   },
   rankProgress: {
     fontSize: 12,
-    color: "#7f8c8d",
+    color: "#aaa",
     marginTop: 4,
     marginLeft: 6,
   },
+  purchasedText: {
+    marginTop: 8,
+    fontSize: 16,
+    color: "#2ecc71",
+    fontWeight: "600",
+  },
+  buttonContainer: {
+    marginTop: 10,
+  },
   purchaseButton: {
-    backgroundColor: "#3498db",
+    backgroundColor: "linear-gradient(90deg, #6a11cb, #2575fc)", // для web
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: "center",
+    shadowColor: "#2575fc",
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
   },
   purchaseButtonText: {
     fontSize: 15,
@@ -246,9 +231,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   unlockButton: {
-    backgroundColor: "#e67e22",
+    backgroundColor: "linear-gradient(90deg, #e67e22, #f39c12)", // для web
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: "center",
   },
   unlockButtonText: {
@@ -256,22 +241,17 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
   },
-  purchasedText: {
-    marginTop: 8,
-    fontSize: 25,
-    color: "green",
-    fontWeight: "600",
-    textAlign: "center",
-  },
   progressContainer: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "rgba(255,255,255,0.05)",
     padding: 8,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   progressText: {
     fontSize: 12,
-    color: '#7f8c8d',
-    textAlign: 'center',
+    color: "#aaa",
+    textAlign: "center",
   },
 });
 

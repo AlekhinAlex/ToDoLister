@@ -1,40 +1,71 @@
-import { StatusBar } from "expo-status-bar";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
 import { Link } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 
-export default function App() {
+export default function Landing() {
   return (
     <LinearGradient
-      colors={["#1E3A8A", "#C084FC"]}
-      start={{ x: 1, y: 0 }} // Top-left
-      end={{ x: 0, y: 1 }} // Bottom-right
+      colors={["#0f0c29", "#302b63", "#24243e"]}
       style={styles.gradient}
     >
-      <SafeAreaView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <StatusBar style="auto" />
+      {/* Лого */}
+      <View style={styles.logoContainer}>
+        <LinearGradient
+          colors={["#4169d1", "#3b82f6"]}
+          style={styles.logoGradient}
+        >
+          <Ionicons name="checkmark-done-circle" size={60} color="#fff" />
+        </LinearGradient>
+      </View>
 
-          <Text style={styles.title}>Добро пожаловать в Todolister</Text>
+      {/* Тексты */}
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>Todolister</Text>
+        <Text style={styles.subtitle}>
+          Преврати свои задачи в увлекательное приключение
+        </Text>
+      </View>
 
-          <Text style={styles.subtitle}>
-            Помогаю сделать повседневные задачи более интересными
-          </Text>
+      {/* Особенности */}
+      <View style={styles.featuresContainer}>
+        <View style={styles.feature}>
+          <Ionicons name="trophy" size={22} color="#FFD700" />
+          <Text style={styles.featureText}>Достигай целей</Text>
+        </View>
+        <View style={styles.feature}>
+          <Ionicons name="star" size={22} color="#3B82F6" />
+          <Text style={styles.featureText}>Зарабатывай награды</Text>
+        </View>
+        <View style={styles.feature}>
+          <Ionicons name="game-controller" size={22} color="#10B981" />
+          <Text style={styles.featureText}>Игровой подход</Text>
+        </View>
+      </View>
 
-          <Link href="/sign-in" style={styles.button} asChild>
-            <TouchableOpacity>
-              <Text style={styles.buttonText}>Вперед!</Text>
-            </TouchableOpacity>
+      {/* Кнопка */}
+      <Link href="/sign-in" asChild>
+        <TouchableOpacity style={styles.button} activeOpacity={0.9}>
+          <LinearGradient
+            colors={["#6a11cb", "#2575fc"]}
+            style={styles.buttonGradient}
+          >
+            <Text style={styles.buttonText}>Начать путешествие</Text>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </Link>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Уже есть аккаунт?{" "}
+          <Link href="/sign-in" style={styles.link}>
+            Войти
           </Link>
-        </ScrollView>
-      </SafeAreaView>
+        </Text>
+      </View>
     </LinearGradient>
   );
 }
@@ -42,45 +73,87 @@ export default function App() {
 const styles = StyleSheet.create({
   gradient: {
     flex: 1,
-  },
-  container: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    padding: 40,
   },
-  scrollContent: {
-    flexGrow: 1,
-    alignItems: "center",
+  logoContainer: {
+    marginBottom: 30,
+  },
+  logoGradient: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     justifyContent: "center",
-    paddingHorizontal: 20,
+    alignItems: "center",
+    boxShadow: "0 8px 20px rgba(65,105,209,0.4)", // web-only
   },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    marginBottom: 10,
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#FFFFFF",
+  textContainer: {
+    alignItems: "center",
     marginBottom: 40,
     textAlign: "center",
   },
+  title: {
+    fontSize: 42,
+    fontWeight: "800",
+    color: "#fff",
+    marginBottom: 15,
+  },
+  subtitle: {
+    fontSize: 18,
+    color: "rgba(255,255,255,0.8)",
+    maxWidth: 400,
+    lineHeight: 24,
+    textAlign: "center",
+  },
+  featuresContainer: {
+    marginBottom: 40,
+    width: "100%",
+    maxWidth: 400,
+    gap: 15,
+  },
+  feature: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    padding: 15,
+    borderRadius: 12,
+  },
+  featureText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "500",
+  },
   button: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 60,
-    paddingVertical: 15,
-    borderRadius: 30,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    borderRadius: 25,
+    overflow: "hidden",
+    marginBottom: 20,
+    cursor: "pointer", // важно для web
+  },
+  buttonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingHorizontal: 40,
+    paddingVertical: 16,
   },
   buttonText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#1E3A8A", // Match the dark blue gradient color
+    color: "#fff",
+  },
+  footer: {
+    marginTop: 20,
+  },
+  footerText: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.7)",
+  },
+  link: {
+    color: "#3B82F6",
+    fontWeight: "600",
+    cursor: "pointer", // важно для web
   },
 });

@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import FormField from "../compnents/formField";
-import { API_BASE } from "../(tabs)/lib/api";
+import { API_BASE } from "../lib/api";
 
 const SignUp = () => {
   const router = useRouter();
@@ -126,7 +126,7 @@ const SignUp = () => {
 
   return (
     <LinearGradient
-      colors={["#1E3A8A", "#C084FC"]}
+      colors={["#0f0c29", "#302b63", "#24243e"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={styles.gradient}
