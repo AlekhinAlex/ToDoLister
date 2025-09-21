@@ -11,11 +11,11 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 from datetime import timedelta
 import dj_database_url # Render DB connection
-from dotenv import load_dotenv #! to load .env file (local dev)
+#from dotenv import load_dotenv #! to load .env file (local dev)
 from pathlib import Path
 import os
 
-load_dotenv() #! take environment variables from .env.
+#load_dotenv() #! take environment variables from .env. (local dev)
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
