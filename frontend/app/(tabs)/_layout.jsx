@@ -19,7 +19,6 @@ const TabsLayout = () => {
   const router = useRouter();
   const pathname = usePathname();
 
-  // плавная анимация панели
   const panelPosition = useRef(new Animated.Value(isSmallScreen ? -280 : 0)).current;
 
   const tabs = [
@@ -112,8 +111,8 @@ const TabsLayout = () => {
 
   return (
     <View style={styles.container}>
-      {/* Кнопка меню для мобильных */}
-      {isSmallScreen && (
+      {/* Кнопка меню для мобильных - показывается только когда панель закрыта */}
+      {isSmallScreen && !isPanelVisible && (
         <TouchableOpacity
           style={styles.menuButton}
           onPress={() => togglePanel(true)}
@@ -158,7 +157,7 @@ const TabsLayout = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0c29", // общий тёмный фон
+    backgroundColor: "#0f0c29",
   },
   panelContainer: {
     position: "absolute",
@@ -166,10 +165,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     width: 280,
-    backgroundColor: "rgba(255, 255, 255, 0.08)", // полупрозрачный
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRightWidth: 1,
     borderRightColor: "rgba(255, 255, 255, 0.15)",
-    backdropFilter: "blur(14px)", // liquid glass эффект (только web)
+    backdropFilter: "blur(14px)",
     boxShadow: "2px 0 15px rgba(0,0,0,0.5)",
     zIndex: 10,
   },
@@ -231,7 +230,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     marginLeft: 280,
-    // padding : 20,
   },
   mobileContent: {
     marginLeft: 0,

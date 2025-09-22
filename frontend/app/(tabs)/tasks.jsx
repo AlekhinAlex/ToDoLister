@@ -9,8 +9,9 @@ import {
   Dimensions,
   Animated,
   RefreshControl,
-  TextInput
+  ActivityIndicator
 } from "react-native";
+import LoadingSkeleton from 'react-loading-skeleton';
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import TaskInfo from "../compnents/taskInfo";
@@ -24,6 +25,7 @@ import { getToken, setToken } from "../lib/storage";
 import { createTask, updateTask } from "../lib/api";
 import { API_BASE } from "../lib/api";
 import CollaborationNotifications from "../compnents/CollaborationNotifications";
+import RankProgressCircle from "../compnents/RankProgressCircle";
 
 const SortModal = ({ visible, options, selectedValue, onSelect, onClose }) => (
   <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
@@ -60,7 +62,95 @@ const SortModal = ({ visible, options, selectedValue, onSelect, onClose }) => (
   </Modal>
 );
 
+// Новый компонент статистики
+const StatsOverview = ({ stats, characterData, isCompact }) => {
+  const progress = characterData.next_rank
+    ? (characterData.xp - (characterData.rank?.required_xp || 0)) /
+    (characterData.next_rank.required_xp - (characterData.rank?.required_xp || 0))
+    : 1;
+
+  return (
+    <View style={[
+      styles.statsContainer,
+      isCompact && styles.statsContainerCompact
+    ]}>
+      {/* Прогресс ранга */}
+      <View style={styles.rankProgress}>
+        <View style={styles.rankInfo}>
+          <Text style={styles.rankName}>
+            {characterData.rank?.name || "Без ранга"}
+          </Text>
+          <Text style={styles.xpText}>
+            {characterData.xp} XP
+            {characterData.next_rank && ` / ${characterData.next_rank.required_xp}`}
+          </Text>
+        </View>
+        <View style={styles.progressWrapper}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${Math.min(progress * 100, 100)}%` }
+              ]}
+            />
+          </View>
+          {characterData.next_rank && (
+            <Text style={styles.nextRankText}>
+              До {characterData.next_rank.name}
+            </Text>
+          )}
+        </View>
+      </View>
+
+      {/* Статистика задач */}
+      <View style={styles.statsGrid}>
+        <View style={styles.statItem}>
+          <View style={[styles.statIcon, { backgroundColor: 'rgba(76, 175, 80, 0.2)' }]}>
+            <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+          </View>
+          <View>
+            <Text style={styles.statNumber}>{stats.completed}</Text>
+            <Text style={styles.statLabel}>Выполнено</Text>
+          </View>
+        </View>
+
+        <View style={styles.statItem}>
+          <View style={[styles.statIcon, { backgroundColor: 'rgba(33, 150, 243, 0.2)' }]}>
+            <Ionicons name="list-circle" size={20} color="#2196F3" />
+          </View>
+          <View>
+            <Text style={styles.statNumber}>{stats.active}</Text>
+            <Text style={styles.statLabel}>Активные</Text>
+          </View>
+        </View>
+
+        <View style={styles.statItem}>
+          <View style={[styles.statIcon, { backgroundColor: 'rgba(255, 193, 7, 0.2)' }]}>
+            <Ionicons name="trophy" size={20} color="#FFC107" />
+          </View>
+          <View>
+            <Text style={styles.statNumber}>{stats.total}</Text>
+            <Text style={styles.statLabel}>Всего</Text>
+          </View>
+        </View>
+
+        <View style={styles.statItem}>
+          <View style={[styles.statIcon, { backgroundColor: 'rgba(156, 39, 176, 0.2)' }]}>
+            <Ionicons name="cash" size={20} color="#9C27B0" />
+          </View>
+          <View>
+            <Text style={styles.statNumber}>{characterData.gold}</Text>
+            <Text style={styles.statLabel}>Золото</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 const Tasks = () => {
+
+  const [showRankTooltip, setShowRankTooltip] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [tasks, setTasks] = useState([]);
@@ -84,7 +174,8 @@ const Tasks = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
-  const [showStats, setShowStats] = useState(false);
+  const [showStats, setShowStats] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const [collaborationModalVisible, setCollaborationModalVisible] = useState(false);
@@ -132,14 +223,14 @@ const Tasks = () => {
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     fetchUserTasksAndBalance().then(() => {
-      if (!unmounted) {
-        setRefreshing(false);
-      }
+      setRefreshing(false);
+
     });
   }, []);
 
   const fetchUserTasksAndBalance = async () => {
     try {
+      setIsLoading(true);
       const { access, refresh } = await getToken();
 
       if (isTokenExpired(access)) {
@@ -151,6 +242,9 @@ const Tasks = () => {
       }
     } catch (error) {
       console.error("Ошибка при получении задач и баланса:", error);
+    }
+    finally {
+      setIsLoading(false);
     }
   };
 
@@ -659,100 +753,24 @@ const Tasks = () => {
 
   return (
     <LinearGradient colors={["#0f0c29", "#302b63", "#24243e"]} style={styles.gradient}>
+
+      <CollaborationNotifications />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <CollaborationNotifications />
+
         <View style={styles.container}>
-          {/* ЗАГОЛОВОК - ИСПРАВЛЕННАЯ ВЕРСИЯ */}
-          <View style={styles.header}>
-            <View style={styles.titleContainer}>
-              <View style={styles.titleRow}>
-                <Ionicons name="checkmark-done-circle" size={36} color="#fff" />
-                <Text style={styles.title}>Мои Задачи</Text>
-              </View>
-              <Text style={styles.subtitle}>
-                {activeTab === "active"
-                  ? `Активные задачи (${stats.active})`
-                  : `Выполненные задачи (${stats.completed})`
-                }
-              </Text>
-            </View>
 
-            <View style={styles.headerActions}>
-              <TouchableOpacity
-                style={[styles.headerButton, showSearch && styles.headerButtonActive]}
-                onPress={toggleSearch}
-              >
-                <Ionicons
-                  name={showSearch ? "close" : "search"}
-                  size={22}
-                  color={showSearch ? "#4169d1" : "#fff"}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.headerButton, showStats && styles.headerButtonActive]}
-                onPress={toggleStats}
-              >
-                <Ionicons
-                  name="stats-chart"
-                  size={22}
-                  color={showStats ? "#4169d1" : "#fff"}
-                />
-              </TouchableOpacity>
-
-              {Dimensions.get("window").width >= 764 && (
-                <RankDisplay
-                  xp={characterData.xp}
-                  money={characterData.gold}
-                  rank={characterData.rank}
-                  nextRank={characterData.next_rank}
-                />
-              )}
-            </View>
-          </View>
-
-
-          {/* СТАТИСТИКА - ИСПРАВЛЕННАЯ ВЕРСИЯ */}
           {showStats && (
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{stats.total}</Text>
-                <Text style={styles.statLabel}>Всего задач</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, styles.statActive]}>{stats.active}</Text>
-                <Text style={styles.statLabel}>Активных</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, styles.statCompleted]}>{stats.completed}</Text>
-                <Text style={styles.statLabel}>Выполнено</Text>
-              </View>
-              <View style={styles.statItem}>
-                <View style={styles.progressCircle}>
-                  <Text style={styles.progressText}>
-                    {stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0}%
-                  </Text>
-                </View>
-                <Text style={styles.statLabel}>Прогресс</Text>
-              </View>
-            </View>
-          )}
-
-          {/* РАНГ ДЛЯ МОБИЛЬНЫХ */}
-          {Dimensions.get("window").width < 764 && (
-            <View style={styles.statusContainerCompact}>
-              <RankDisplay
-                xp={characterData.xp}
-                money={characterData.gold}
-                rank={characterData.rank}
-                nextRank={characterData.next_rank}
-              />
-            </View>
+            <StatsOverview
+              stats={stats}
+              characterData={characterData}
+              isCompact={isCompact}
+            />
           )}
 
           {/* ПЕРЕКЛЮЧАТЕЛЬ АКТИВНЫЕ/ВЫПОЛНЕННЫЕ - ИСПРАВЛЕННАЯ ВЕРСИЯ */}
@@ -842,7 +860,13 @@ const Tasks = () => {
             </View>
           </View>
 
-          {filteredTasks.length === 0 ? (
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4169d1" />
+              <Text style={styles.loadingText}>Загрузка задач...</Text>
+              <LoadingSkeleton isCompact={isCompact} />
+            </View>
+          ) : filteredTasks.length === 0 ? (
             <View style={styles.noTasksContainer}>
               <Ionicons name="document-text-outline" size={60} color="rgba(255,255,255,0.3)" />
               <Text style={styles.noTasksText}>
@@ -882,14 +906,15 @@ const Tasks = () => {
                     isDeleting={deletingTasks[task.id]}
                     createdAt={task.created_at}
                     collaborators={task.collaborators || []}
-                    ownerId={task.user}  // Передаем ID владельца (число)
-                    ownerData={task.owner}  // Передаем данные владельца (объект)
-                    currentUserId={characterData.user?.id}  // ID текущего пользователя
+                    ownerId={task.user}
+                    ownerData={task.owner}
+                    currentUserId={characterData.user?.id}
                   />
                 ))}
               </View>
             </View>
           )}
+
 
           <EditTaskModal
             visible={isModalVisible}
@@ -1005,53 +1030,80 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 15,
-    padding: 15,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  statsContainerCompact: {
+    padding: 12,
+  },
+  rankProgress: {
+    marginBottom: 16,
+  },
+  rankInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  rankName: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  xpText: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 14,
+  },
+  progressWrapper: {
+    gap: 4,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: 6,
+    backgroundColor: "#FFD700",
+    borderRadius: 3,
+  },
+  nextRankText: {
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: 12,
+  },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
   },
   statItem: {
+    flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+    minWidth: "45%",
+    gap: 10,
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
+    alignItems: "center",
   },
   statNumber: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 5,
-  },
-  statActive: {
-    color: "#4CAF50",
-  },
-  statCompleted: {
-    color: "#2196F3",
-  },
-  progressCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 5,
-  },
-  progressText: {
-    color: "#FFD700",
-    fontSize: 14,
-    fontWeight: "bold",
+    marginBottom: 2,
   },
   statLabel: {
     color: "rgba(255, 255, 255, 0.7)",
     fontSize: 12,
-    textAlign: "center",
-  },
-  statusContainerCompact: {
-    alignItems: "center",
-    gap: 8,
-    marginTop: 10,
-    marginBottom: 20
   },
   actionsRow: {
     flexDirection: "row",
@@ -1184,6 +1236,17 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
   },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 10,
+    marginBottom: 20,
+  },
 });
 
 const modalStyles = StyleSheet.create({
@@ -1229,6 +1292,54 @@ const modalStyles = StyleSheet.create({
   selectedOptionText: {
     fontWeight: '600',
     color: '#4169d1',
+  },
+  skeletonTask: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 15,
+    padding: 15,
+    margin: 8,
+  },
+  skeletonCompact: {
+    width: '100%',
+    maxWidth: 400,
+  },
+  skeletonRegular: {
+    width: 300,
+  },
+  skeletonHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  skeletonTitle: {
+    width: '60%',
+    height: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 4,
+  },
+  skeletonActions: {
+    width: 60,
+    height: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 4,
+  },
+  skeletonDescription: {
+    width: '80%',
+    height: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 4,
+    marginBottom: 15,
+  },
+  skeletonFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  skeletonBadge: {
+    width: 70,
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
   },
 });
 

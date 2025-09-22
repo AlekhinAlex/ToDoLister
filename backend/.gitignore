@@ -21,7 +21,6 @@ wheels/
 *.pot
 *.pyc
 db.sqlite3
-media/
 static/
 local_settings.py
 
@@ -36,11 +35,11 @@ local_settings.py
 *.swo
 .DS_Store
 
-# Project specific
-media/shop_items/characters/*
-!media/shop_items/characters/.gitkeep
-media/avatars/*
-!media/avatars/.gitkeep
+# # Project specific
+# media/shop_items/characters/*
+# !media/shop_items/characters/.gitkeep
+# media/avatars/*
+# !media/avatars/.gitkeep
 
 # Virtual Environment
 venv/

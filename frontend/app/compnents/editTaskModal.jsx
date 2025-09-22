@@ -9,6 +9,10 @@ import {
   ScrollView,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import { LinearGradient } from "expo-linear-gradient";
@@ -32,11 +36,40 @@ const EditTaskModal = ({
   const [type, setType] = useState(3);
   const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false);
   const [selectedFriends, setSelectedFriends] = useState([]);
-  const [friends, setFriends] = useState([]); // Добавляем состояние для друзей
+  const [friends, setFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
 
-  const { width } = useWindowDimensions();
-  const isCompact = width < 764;
+  const { width, height } = useWindowDimensions();
+  const isPhone = width < 768;
+  const isLargeScreen = width >= 1200;
+
+  // Адаптивные размеры
+  const responsive = {
+    fontSize: {
+      title: isPhone ? 22 : 26,
+      label: isPhone ? 15 : 16,
+      button: isPhone ? 15 : 16,
+      input: isPhone ? 15 : 16,
+    },
+    spacing: {
+      container: isPhone ? 16 : 24,
+      inputGroup: isPhone ? 18 : 22,
+      element: isPhone ? 12 : 16,
+      small: isPhone ? 8 : 10,
+    },
+    sizes: {
+      modalWidth: Math.min(width * 0.92, 600),
+      modalMaxHeight: height * 0.85,
+      buttonHeight: isPhone ? 48 : 52,
+      avatar: isPhone ? 28 : 32,
+      icon: isPhone ? 18 : 20,
+    },
+    borderRadius: {
+      modal: isPhone ? 20 : 24,
+      element: isPhone ? 14 : 16,
+      button: isPhone ? 14 : 16,
+    }
+  };
 
   const collaborationTypeOptions = [
     { value: 1, label: 'Любой может завершить', icon: 'person' },
@@ -55,7 +88,6 @@ const EditTaskModal = ({
       setType(task.type || 3);
       setCollaborationType(task.collaboration_type || 1);
 
-      // Загружаем коллабораторов если они есть
       if (task.collaborators) {
         const acceptedCollaborators = task.collaborators
           .filter(collab => collab.accepted)
@@ -98,7 +130,6 @@ const EditTaskModal = ({
 
       if (response.ok) {
         const friendships = await response.json();
-        // Преобразуем данные о дружбах в список друзей
         const friendsList = friendships.map(friendship => friendship.friend);
         setFriends(friendsList);
       } else {
@@ -165,20 +196,34 @@ const EditTaskModal = ({
 
   const CollaboratorsModal = () => (
     <Modal
-      animationType="fade"
+      animationType={isPhone ? "slide" : "fade"}
       transparent={true}
       visible={showCollaboratorsModal}
       onRequestClose={() => setShowCollaboratorsModal(false)}
     >
       <View style={styles.collaboratorsModalContainer}>
-        <LinearGradient
-          colors={["#0f0c29", "#302b63", "#24243e"]}
-          style={styles.collaboratorsModalContent}
-        >
+        <TouchableWithoutFeedback onPress={() => setShowCollaboratorsModal(false)}>
+          <View style={styles.collaboratorsModalOverlay} />
+        </TouchableWithoutFeedback>
+
+        <View style={[
+          styles.collaboratorsModalContent,
+          {
+            width: responsive.sizes.modalWidth,
+            maxHeight: responsive.sizes.modalMaxHeight,
+            borderRadius: responsive.borderRadius.modal,
+            padding: responsive.spacing.container
+          }
+        ]}>
           <View style={styles.collaboratorsHeader}>
-            <Text style={styles.collaboratorsTitle}>Выберите друзей</Text>
-            <TouchableOpacity onPress={() => setShowCollaboratorsModal(false)}>
-              <Ionicons name="close" size={24} color="#fff" />
+            <Text style={[styles.collaboratorsTitle, { fontSize: responsive.fontSize.title }]}>
+              Выберите друзей
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowCollaboratorsModal(false)}
+              style={styles.closeButton}
+            >
+              <Ionicons name="close" size={responsive.sizes.icon} color="#fff" />
             </TouchableOpacity>
           </View>
 
@@ -200,232 +245,358 @@ const EditTaskModal = ({
                 >
                   <View style={styles.friendInfo}>
                     {item.avatar ? (
-                      <Image source={{ uri: item.avatar }} style={styles.friendAvatar} />
+                      <Image
+                        source={{ uri: item.avatar }}
+                        style={[
+                          styles.friendAvatar,
+                          { width: responsive.sizes.avatar, height: responsive.sizes.avatar }
+                        ]}
+                      />
                     ) : (
-                      <Ionicons name="person" size={24} color="#fff" />
+                      <View style={[
+                        styles.friendAvatarPlaceholder,
+                        { width: responsive.sizes.avatar, height: responsive.sizes.avatar }
+                      ]}>
+                        <Ionicons name="person" size={responsive.sizes.icon - 4} color="#fff" />
+                      </View>
                     )}
-                    <Text style={styles.friendName}>{item.username || item.email}</Text>
+                    <Text style={[
+                      styles.friendName,
+                      { fontSize: responsive.fontSize.input }
+                    ]}>
+                      {item.username || item.email}
+                    </Text>
                   </View>
                   {selectedFriends.some(f => f.id === item.id) && (
-                    <Ionicons name="checkmark" size={20} color="#10B981" />
+                    <Ionicons name="checkmark" size={responsive.sizes.icon} color="#10B981" />
                   )}
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
-                <Text style={styles.noFriendsText}>
-                  {loadingFriends ? "Загрузка..." : "У вас пока нет друзей"}
-                </Text>
+                <View style={styles.noFriendsContainer}>
+                  <Ionicons name="people-outline" size={40} color="#666" />
+                  <Text style={styles.noFriendsText}>
+                    {loadingFriends ? "Загрузка..." : "У вас пока нет друзей"}
+                  </Text>
+                </View>
               }
             />
           )}
-        </LinearGradient>
+        </View>
       </View>
     </Modal>
   );
+
   return (
     <>
       <Modal
-        animationType="fade"
+        animationType={"fade"}
         transparent={true}
         visible={visible}
         onRequestClose={onCancel}
       >
-        <View style={styles.modalContainer}>
-          <LinearGradient
-            colors={["#0f0c29", "#302b63", "#24243e"]}
-            style={styles.gradient}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalContainer}
+        >
+          <TouchableWithoutFeedback
+            onPress={(e) => {
+              const isTextInput = e.target?.type === 'text' ||
+                e.target?.type === 'textarea' ||
+                e.target?.getAttribute('data-textinput') === 'true';
+
+              if (!isTextInput) {
+                Keyboard.dismiss();
+              }
+            }}
           >
-            <View
-              style={[
+            <View style={styles.modalContainer}>
+              <View style={styles.modalOverlay} />
+
+              <View style={[
                 styles.modalContent,
-                { width: isCompact ? "100%" : 500, maxHeight: "100%" },
-              ]}
-            >
-              <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.header}>
-                  <Ionicons name="create-outline" size={28} color="#fff" />
-                  <Text style={styles.modalTitle}>
-                    {task?.id ? "Редактировать задачу" : "Создать задачу"}
-                  </Text>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Название задачи</Text>
-                  <View style={styles.inputContainer}>
-                    <Ionicons name="pencil" size={20} color="#aaa" style={styles.inputIcon} />
-                    <TextInput
-                      style={styles.input}
-                      value={title}
-                      onChangeText={setTitle}
-                      placeholder="Введите название задачи"
-                      placeholderTextColor="#666"
-                    />
+                {
+                  width: responsive.sizes.modalWidth,
+                  maxHeight: responsive.sizes.modalMaxHeight,
+                  borderRadius: responsive.borderRadius.modal,
+                  padding: responsive.spacing.container
+                }
+              ]}>
+                <ScrollView
+                  contentContainerStyle={styles.scrollContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  <View style={[styles.header, { marginBottom: responsive.spacing.inputGroup }]}>
+                    <Ionicons name="create-outline" size={responsive.fontSize.title} color="#fff" />
+                    <Text style={[styles.modalTitle, { fontSize: responsive.fontSize.title }]}>
+                      {task?.id ? "Редактировать задачу" : "Создать задачу"}
+                    </Text>
                   </View>
-                </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Описание</Text>
-                  <View style={styles.inputContainer}>
-                    <Ionicons name="document-text" size={20} color="#aaa" style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.input, styles.descriptionInput]}
-                      value={description}
-                      onChangeText={setDescription}
-                      multiline
-                      placeholder="Опишите детали задачи"
-                      placeholderTextColor="#666"
-                    />
+                  <View style={[styles.inputGroup, { marginBottom: responsive.spacing.inputGroup }]}>
+                    <Text style={[styles.label, { fontSize: responsive.fontSize.label }]}>
+                      Название задачи
+                    </Text>
+                    <View style={styles.inputContainer}>
+                      <Ionicons
+                        name="pencil"
+                        size={responsive.sizes.icon}
+                        color="#aaa"
+                        style={styles.inputIcon}
+                      />
+                      <TextInput
+                        style={[styles.input, { fontSize: responsive.fontSize.input }]}
+                        value={title}
+                        onChangeText={setTitle}
+                        placeholder="Введите название задачи"
+                        placeholderTextColor="#666"
+                      />
+                    </View>
                   </View>
-                </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Сложность</Text>
-                  <View style={styles.optionsContainer}>
-                    {difficultyOptions.map((option) => (
-                      <TouchableOpacity
-                        key={option.value}
+                  <View style={[styles.inputGroup, { marginBottom: responsive.spacing.inputGroup }]}>
+                    <Text style={[styles.label, { fontSize: responsive.fontSize.label }]}>
+                      Описание
+                    </Text>
+                    <View style={styles.inputContainer}>
+                      <Ionicons
+                        name="document-text"
+                        size={responsive.sizes.icon}
+                        color="#aaa"
+                        style={styles.inputIcon}
+                      />
+                      <TextInput
                         style={[
-                          styles.optionButton,
-                          difficulty === option.value && {
-                            backgroundColor: option.color,
-                          }
+                          styles.input,
+                          styles.descriptionInput,
+                          { fontSize: responsive.fontSize.input }
                         ]}
-                        onPress={() => setDifficulty(option.value)}
-                      >
-                        <Text style={[
-                          styles.optionButtonText,
-                          difficulty === option.value && styles.selectedOptionText
-                        ]}>
-                          {option.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Тип задания</Text>
-                  <View style={styles.optionsContainer}>
-                    {typeOptions.map((option) => (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={[
-                          styles.optionButton,
-                          type === option.value && styles.selectedTypeOption,
-                        ]}
-                        onPress={() => setType(option.value)}
-                      >
-                        <Ionicons
-                          name={option.icon}
-                          size={18}
-                          color={type === option.value ? "#fff" : "#aaa"}
-                        />
-                        <Text style={[
-                          styles.optionButtonText,
-                          type === option.value && styles.selectedOptionText
-                        ]}>
-                          {option.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Секция коллаборации */}
-                <View style={styles.inputGroup}>
-                  <View style={styles.collaboratorsHeader}>
-                    <Text style={styles.label}>Участники задачи</Text>
-                    <TouchableOpacity
-                      style={styles.addCollaboratorButton}
-                      onPress={() => setShowCollaboratorsModal(true)}
-                    >
-                      <Ionicons name="person-add" size={20} color="#3B82F6" />
-                      <Text style={styles.addCollaboratorText}>Добавить</Text>
-                    </TouchableOpacity>
+                        value={description}
+                        onChangeText={setDescription}
+                        multiline
+                        placeholder="Опишите детали задачи"
+                        placeholderTextColor="#666"
+                      />
+                    </View>
                   </View>
 
-                  {selectedFriends.length > 0 ? (
-                    <View style={styles.collaboratorsList}>
-                      {selectedFriends.map(friend => (
-                        <View key={friend.id} style={styles.collaboratorItem}>
-                          <View style={styles.collaboratorInfo}>
-                            {friend.avatar ? (
-                              <Image source={{ uri: friend.avatar }} style={styles.collaboratorAvatar} />
-                            ) : (
-                              <Ionicons name="person" size={16} color="#fff" />
-                            )}
-                            <Text style={styles.collaboratorName}>
-                              {friend.username || friend.email}
-                            </Text>
-                          </View>
-                          <TouchableOpacity
-                            onPress={() => handleRemoveCollaborator(friend.id)}
-                            style={styles.removeCollaboratorButton}
-                          >
-                            <Ionicons name="close" size={16} color="#EF4444" />
-                          </TouchableOpacity>
-                        </View>
+                  <View style={[styles.inputGroup, { marginBottom: responsive.spacing.inputGroup }]}>
+                    <Text style={[styles.label, { fontSize: responsive.fontSize.label }]}>
+                      Сложность
+                    </Text>
+                    <View style={[
+                      styles.optionsContainer,
+                      isPhone && styles.phoneOptionsContainer
+                    ]}>
+                      {difficultyOptions.map((option) => (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.optionButton,
+                            difficulty === option.value && {
+                              backgroundColor: option.color,
+                            }
+                          ]}
+                          onPress={() => setDifficulty(option.value)}
+                        >
+                          <Text style={[
+                            styles.optionButtonText,
+                            { fontSize: responsive.fontSize.input - 1 },
+                            difficulty === option.value && styles.selectedOptionText
+                          ]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
                       ))}
                     </View>
-                  ) : (
-                    <Text style={styles.noCollaboratorsText}>
-                      Нет участников. Нажмите "Добавить" чтобы пригласить друзей.
-                    </Text>
-                  )}
-                </View>
+                  </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Тип сотрудничества</Text>
-                  <View style={styles.optionsContainer}>
-                    {collaborationTypeOptions.map((option) => (
+                  <View style={[styles.inputGroup, { marginBottom: responsive.spacing.inputGroup }]}>
+                    <Text style={[styles.label, { fontSize: responsive.fontSize.label }]}>
+                      Тип задания
+                    </Text>
+                    <View style={[
+                      styles.optionsContainer,
+                      isPhone && styles.phoneOptionsContainer
+                    ]}>
+                      {typeOptions.map((option) => (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.optionButton,
+                            type === option.value && styles.selectedTypeOption,
+                          ]}
+                          onPress={() => setType(option.value)}
+                        >
+                          <Ionicons
+                            name={option.icon}
+                            size={responsive.sizes.icon - 2}
+                            color={type === option.value ? "#fff" : "#aaa"}
+                          />
+                          <Text style={[
+                            styles.optionButtonText,
+                            { fontSize: responsive.fontSize.input - 1 },
+                            type === option.value && styles.selectedOptionText
+                          ]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Секция коллаборации */}
+                  <View style={[styles.inputGroup, { marginBottom: responsive.spacing.inputGroup }]}>
+                    <View style={styles.collaboratorsHeader}>
+                      <Text style={[styles.label, { fontSize: responsive.fontSize.label }]}>
+                        Участники задачи
+                      </Text>
                       <TouchableOpacity
-                        key={option.value}
-                        style={[
-                          styles.optionButton,
-                          collaborationType === option.value && styles.selectedTypeOption,
-                        ]}
-                        onPress={() => setCollaborationType(option.value)}
+                        style={styles.addCollaboratorButton}
+                        onPress={() => setShowCollaboratorsModal(true)}
                       >
-                        <Ionicons
-                          name={option.icon}
-                          size={18}
-                          color={collaborationType === option.value ? "#fff" : "#aaa"}
-                        />
+                        <Ionicons name="person-add" size={responsive.sizes.icon} color="#3B82F6" />
                         <Text style={[
-                          styles.optionButtonText,
-                          collaborationType === option.value && styles.selectedOptionText
+                          styles.addCollaboratorText,
+                          { fontSize: responsive.fontSize.input - 1 }
                         ]}>
-                          {option.label}
+                          Добавить
                         </Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
+                    </View>
 
-                <View style={styles.buttonRow}>
-                  <TouchableOpacity
-                    style={[styles.button, styles.cancelButton]}
-                    onPress={onCancel}
-                  >
-                    <Ionicons name="close" size={20} color="#fff" />
-                    <Text style={styles.buttonText}>Отмена</Text>
-                  </TouchableOpacity>
-                  <LinearGradient
-                    colors={["#4169d1", "#3b82f6"]}
-                    style={[styles.button, styles.saveButton]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <TouchableOpacity onPress={handleSavePress} style={styles.saveButtonInner}>
-                      <Ionicons name="checkmark" size={20} color="#fff" />
-                      <Text style={styles.buttonText}>Сохранить</Text>
+                    {selectedFriends.length > 0 ? (
+                      <View style={styles.collaboratorsList}>
+                        {selectedFriends.map(friend => (
+                          <View key={friend.id} style={styles.collaboratorItem}>
+                            <View style={styles.collaboratorInfo}>
+                              {friend.avatar ? (
+                                <Image
+                                  source={{ uri: friend.avatar }}
+                                  style={[
+                                    styles.collaboratorAvatar,
+                                    { width: responsive.sizes.avatar - 4, height: responsive.sizes.avatar - 4 }
+                                  ]}
+                                />
+                              ) : (
+                                <View style={[
+                                  styles.collaboratorAvatarPlaceholder,
+                                  { width: responsive.sizes.avatar - 4, height: responsive.sizes.avatar - 4 }
+                                ]}>
+                                  <Ionicons name="person" size={responsive.sizes.icon - 6} color="#fff" />
+                                </View>
+                              )}
+                              <Text style={[
+                                styles.collaboratorName,
+                                { fontSize: responsive.fontSize.input - 1 }
+                              ]}>
+                                {friend.username || friend.email}
+                              </Text>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => handleRemoveCollaborator(friend.id)}
+                              style={styles.removeCollaboratorButton}
+                            >
+                              <Ionicons name="close" size={responsive.sizes.icon - 4} color="#EF4444" />
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={[
+                        styles.noCollaboratorsText,
+                        { fontSize: responsive.fontSize.input - 1 }
+                      ]}>
+                        Нет участников. Нажмите "Добавить" чтобы пригласить друзей.
+                      </Text>
+                    )}
+                  </View>
+
+                  <View style={[styles.inputGroup, { marginBottom: responsive.spacing.inputGroup }]}>
+                    <Text style={[styles.label, { fontSize: responsive.fontSize.label }]}>
+                      Тип сотрудничества
+                    </Text>
+                    <View style={[
+                      styles.optionsContainer,
+                      isPhone && styles.phoneOptionsContainer
+                    ]}>
+                      {collaborationTypeOptions.map((option) => (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.optionButton,
+                            collaborationType === option.value && styles.selectedTypeOption,
+                          ]}
+                          onPress={() => setCollaborationType(option.value)}
+                        >
+                          <Ionicons
+                            name={option.icon}
+                            size={responsive.sizes.icon - 2}
+                            color={collaborationType === option.value ? "#fff" : "#aaa"}
+                          />
+                          <Text style={[
+                            styles.optionButtonText,
+                            { fontSize: responsive.fontSize.input - 1 },
+                            collaborationType === option.value && styles.selectedOptionText
+                          ]}>
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={[
+                    styles.buttonRow,
+                    isPhone && styles.phoneButtonRow,
+                    { marginTop: responsive.spacing.inputGroup, gap: responsive.spacing.element }
+                  ]}>
+                    <TouchableOpacity
+                      style={[
+                        styles.button,
+                        styles.cancelButton,
+                        { height: responsive.sizes.buttonHeight, borderRadius: responsive.borderRadius.button }
+                      ]}
+                      onPress={onCancel}
+                    >
+                      <Ionicons name="close" size={responsive.sizes.icon} color="#fff" />
+                      <Text style={[
+                        styles.buttonText,
+                        { fontSize: responsive.fontSize.button }
+                      ]}>
+                        Отмена
+                      </Text>
                     </TouchableOpacity>
-                  </LinearGradient>
-                </View>
-              </ScrollView>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.button,
+                        styles.saveButton,
+                        { height: responsive.sizes.buttonHeight, borderRadius: responsive.borderRadius.button }
+                      ]}
+                      onPress={handleSavePress}
+                    >
+                      <LinearGradient
+                        colors={["#4169d1", "#3b82f6"]}
+                        style={[styles.saveButtonInner, { borderRadius: responsive.borderRadius.button }]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Ionicons name="checkmark" size={responsive.sizes.icon} color="#fff" />
+                        <Text style={[
+                          styles.buttonText,
+                          { fontSize: responsive.fontSize.button }
+                        ]}>
+                          Сохранить
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </View>
             </View>
-          </LinearGradient>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
 
       <CollaboratorsModal />
@@ -433,44 +604,37 @@ const EditTaskModal = ({
   );
 };
 
-
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.8)",
-
   },
-  gradient: {
-    borderRadius: 20,
-    overflow: "hidden",
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
   },
   modalContent: {
     backgroundColor: "rgba(30, 30, 46, 0.95)",
-    borderRadius: 20,
-    padding: 20,
-    maxHeight: "60%",
+    overflow: "hidden",
   },
   scrollContent: {
-    padding: 5,
+    flexGrow: 1,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 25,
     gap: 12,
   },
   modalTitle: {
-    fontSize: 24,
     fontWeight: "700",
     color: "#ffffff",
   },
   inputGroup: {
-    marginBottom: 20,
+    width: '100%',
   },
   label: {
-    fontSize: 16,
     fontWeight: "600",
     color: "#E0F2FE",
     marginBottom: 10,
@@ -479,42 +643,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    borderRadius: 14,
+    paddingHorizontal: 16,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   input: {
+    outlineStyle: "none",
     flex: 1,
     color: "#FFFFFF",
-    fontSize: 16,
-    paddingVertical: 15,
-    outlineStyle: "none",
+    paddingVertical: 16,
   },
   descriptionInput: {
-    minHeight: 100,
+    minHeight: 120,
     textAlignVertical: "top",
   },
   optionsContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 12,
+  },
+  phoneOptionsContainer: {
+    justifyContent: "space-between",
   },
   optionButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 14,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderWidth: 2,
     borderColor: "transparent",
-    minWidth: 100,
     flex: 1,
-    minWidth: "30%",
+    minWidth: '30%',
   },
   selectedTypeOption: {
     backgroundColor: "#4169d1",
@@ -525,24 +690,22 @@ const styles = StyleSheet.create({
   },
   optionButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
     fontWeight: "500",
   },
   buttonRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 15,
-    marginTop: 10,
+  },
+  phoneButtonRow: {
+    flexDirection: "column",
   },
   button: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 15,
-    borderRadius: 12,
-    minHeight: 50,
+    gap: 10,
+    overflow: "hidden",
   },
   cancelButton: {
     backgroundColor: "rgba(239, 68, 68, 0.3)",
@@ -556,73 +719,76 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 10,
     width: "100%",
     height: "100%",
+    paddingHorizontal: 20,
   },
   buttonText: {
     color: "#FFFFFF",
     fontWeight: "600",
-    fontSize: 16,
   },
   collaboratorsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   addCollaboratorButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    padding: 8,
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(59, 130, 246, 0.4)',
   },
   addCollaboratorText: {
     color: '#3B82F6',
-    fontSize: 14,
     fontWeight: '600',
   },
   collaboratorsList: {
-    gap: 8,
+    gap: 10,
   },
   collaboratorItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
+    padding: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   collaboratorInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   collaboratorAvatar: {
-    width: 24,
-    height: 24,
     borderRadius: 12,
+  },
+  collaboratorAvatarPlaceholder: {
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   collaboratorName: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontWeight: "500",
   },
   removeCollaboratorButton: {
-    padding: 4,
+    padding: 6,
   },
   noCollaboratorsText: {
     color: '#666',
-    fontSize: 14,
     textAlign: 'center',
-    padding: 16,
+    padding: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 8,
+    borderRadius: 12,
   },
 
   // Стили для модального окна выбора друзей
@@ -630,29 +796,30 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  collaboratorsModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
   },
   collaboratorsModalContent: {
-    width: '90%',
-    maxWidth: 400,
-    maxHeight: '80%',
-    borderRadius: 20,
-    padding: 20,
+    backgroundColor: "rgba(30, 30, 46, 0.95)",
+    overflow: "hidden",
+  },
+  closeButton: {
+    padding: 6,
   },
   collaboratorsTitle: {
-    fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 20,
   },
   friendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    marginVertical: 4,
+    marginVertical: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -663,21 +830,30 @@ const styles = StyleSheet.create({
   friendInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
   },
   friendAvatar: {
-    width: 32,
-    height: 32,
     borderRadius: 16,
+  },
+  friendAvatarPlaceholder: {
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   friendName: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontWeight: "500",
+  },
+  noFriendsContainer: {
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   noFriendsText: {
     color: '#666',
     textAlign: 'center',
-    padding: 20,
+    marginTop: 12,
   },
   loadingContainer: {
     padding: 20,
@@ -686,9 +862,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: '#FFFFFF',
-    fontSize: 16,
   },
-
 });
 
 export default EditTaskModal;
