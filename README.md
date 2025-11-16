@@ -1,6 +1,6 @@
 # TodoLister - Gamified Task Management Application
 
-A full-stack mobile-first application that transforms mundane task management into an engaging gaming experience. Built with Django REST Framework backend and React Native (Expo) frontend, featuring character progression, rewards systems, and social collaboration.
+A full-stack web application that transforms mundane task management into an engaging gaming experience. Built with Django REST Framework backend and React Native (Expo) frontend, featuring character progression, rewards systems, and social collaboration.
 
 ![TodoLister Banner](screenshots/landing_screen_and_tasksMobile.png)
 
@@ -269,7 +269,6 @@ const CharacterCustomization = () => {
 - ✅ **Gamification** - XP, gold, and rank progression
 - ✅ **Character System** - Avatar customization with shop
 - ✅ **Social Features** - Friends and task collaboration
-- ✅ **Mobile App** - React Native with Expo
 
 
 ## 🔮 Future Enhancements
